@@ -9,6 +9,7 @@ from models.citas import listar_citas, crear_cita, actualizar_cita, eliminar_cit
 from models.pacientes import listar_pacientes
 from models.medicos import listar_medicos
 from models.horarios import listar_horarios_disponibles
+from utils.validators import es_fecha_valida
 
 
 class CitasForm(tk.Frame):
@@ -121,15 +122,18 @@ class CitasForm(tk.Frame):
         medico_txt = self.cbo_medico.get()
         if medico_txt == "":
             return
-        id_medico = int(medico_txt.split(" - ")[0])
-        fecha = self.txt_fecha.get()
 
-        if fecha == "":
-            messagebox.showwarning("Aviso", "Ingrese la fecha antes de elegir el horario.")
+        fecha = self.txt_fecha.get().strip()
+        if not es_fecha_valida(fecha):
+            from tkinter import messagebox
+            messagebox.showwarning("Fecha inválida", "Ingrese una fecha válida en formato YYYY-MM-DD.")
             return
+
+        id_medico = int(medico_txt.split(" - ")[0])
 
         horarios = listar_horarios_disponibles(id_medico, fecha)
         self.cbo_horario["values"] = [f"{h[0]} - {h[1]} a {h[2]}" for h in horarios]
+        self.cbo_horario.set("")
 
     # -------------------------------------------------------
     def limpiar_formulario(self):
@@ -150,51 +154,48 @@ class CitasForm(tk.Frame):
 
     # -------------------------------------------------------
     def guardar(self):
+        from tkinter import messagebox
 
-        if self.id_cita_seleccionada is None:
-            # INSERTAR
-            try:
-                id_paciente = int(self.cbo_paciente.get().split(" - ")[0])
-                id_horario = int(self.cbo_horario.get().split(" - ")[0])
+        fecha = self.txt_fecha.get().strip()
+        if not es_fecha_valida(fecha):
+            messagebox.showwarning("Fecha inválida", "Ingrese una fecha válida en formato YYYY-MM-DD.")
+            return
 
-                data = {
-                    "id_paciente": id_paciente,
-                    "id_horario": id_horario,
-                    "estado_cita": self.cbo_estado.get(),
-                    "estado_pago": self.cbo_pago.get(),
-                    "motivo": self.txt_motivo.get(),
-                    "observaciones": "",
-                }
+        if self.cbo_paciente.get() == "" or self.cbo_medico.get() == "" or self.cbo_horario.get() == "":
+            messagebox.showwarning("Aviso", "Seleccione paciente, médico y horario.")
+            return
 
+        try:
+            id_paciente = int(self.cbo_paciente.get().split(" - ")[0])
+            id_horario = int(self.cbo_horario.get().split(" - ")[0])
+        except Exception:
+            messagebox.showerror("Error", "Paciente u horario no válidos.")
+            return
+
+        data = {
+            "id_paciente": id_paciente,
+            "id_horario": id_horario,
+            "estado_cita": self.cbo_estado.get() or "PENDIENTE",
+            "estado_pago": self.cbo_pago.get() or "PENDIENTE",
+            "motivo": self.txt_motivo.get(),
+            "observaciones": "",
+        }
+
+        try:
+            if self.id_cita_seleccionada is None:
+                # INSERTAR
                 crear_cita(data)
                 messagebox.showinfo("Éxito", "Cita creada correctamente.")
-
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo crear la cita:\n{e}")
-
-        else:
-            # ACTUALIZAR
-            try:
-                id_paciente = int(self.cbo_paciente.get().split(" - ")[0])
-                id_horario = int(self.cbo_horario.get().split(" - ")[0])
-
-                data = {
-                    "id_paciente": id_paciente,
-                    "id_horario": id_horario,
-                    "estado_cita": self.cbo_estado.get(),
-                    "estado_pago": self.cbo_pago.get(),
-                    "motivo": self.txt_motivo.get(),
-                    "observaciones": "",
-                }
-
+            else:
+                # ACTUALIZAR
                 actualizar_cita(self.id_cita_seleccionada, data)
                 messagebox.showinfo("Éxito", "Cita actualizada correctamente.")
 
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo actualizar la cita:\n{e}")
+            self.cargar_tabla()
+            self.limpiar_formulario()
 
-        self.cargar_tabla()
-        self.limpiar_formulario()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar la cita:\n{e}")
 
     # -------------------------------------------------------
     def eliminar(self):

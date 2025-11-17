@@ -12,65 +12,59 @@ from ui.medicos_form import MedicosForm
 from utils.styles import apply_styles
 
 
-# ---------------------------------------------
-# Menú principal
-# ---------------------------------------------
 class MainMenu(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
 
         self.master.title("Sistema de Reserva de Citas Médicas")
-        self.master.geometry("400x300")
         self.master.resizable(False, False)
+
+        self.ancho = 420
+        self.alto = 320
+        self.centrar_ventana()
 
         apply_styles(self.master)
         self.crear_widgets()
 
+    def centrar_ventana(self):
+        self.master.update_idletasks()
+        w = self.ancho
+        h = self.alto
+        sw = self.master.winfo_screenwidth()
+        sh = self.master.winfo_screenheight()
+        x = int((sw - w) / 2)
+        y = int((sh - h) / 2)
+        self.master.geometry(f"{w}x{h}+{x}+{y}")
+
     def crear_widgets(self):
+        cont = tk.Frame(self.master, padx=20, pady=20)
+        cont.pack(expand=True, fill="both")
+
         tk.Label(
-            self.master,
+            cont,
             text="Sistema de Reserva de Citas Médicas",
             font=("Segoe UI", 14, "bold")
-        ).pack(pady=15)
+        ).pack(pady=(0, 15))
 
-        btn_frame = tk.Frame(self.master)
-        btn_frame.pack(pady=10)
+        btn_frame = tk.Frame(cont)
+        btn_frame.pack()
 
-        tk.Button(
-            btn_frame,
-            text="Dashboard",
-            width=20,
-            command=self.abrir_dashboard
-        ).grid(row=0, column=0, pady=5)
+        botones = [
+            ("Dashboard", self.abrir_dashboard),
+            ("Gestión de Citas", self.abrir_citas),
+            ("Ver Pacientes", self.abrir_pacientes),
+            ("Ver Médicos", self.abrir_medicos),
+            ("Salir", self.master.destroy)
+        ]
 
-        tk.Button(
-            btn_frame,
-            text="Gestión de Citas",
-            width=20,
-            command=self.abrir_citas
-        ).grid(row=1, column=0, pady=5)
-
-        tk.Button(
-            btn_frame,
-            text="Ver Pacientes",
-            width=20,
-            command=self.abrir_pacientes
-        ).grid(row=2, column=0, pady=5)
-
-        tk.Button(
-            btn_frame,
-            text="Ver Médicos",
-            width=20,
-            command=self.abrir_medicos
-        ).grid(row=3, column=0, pady=5)
-
-        tk.Button(
-            btn_frame,
-            text="Salir",
-            width=20,
-            command=self.master.destroy
-        ).grid(row=4, column=0, pady=15)
+        for i, (texto, comando) in enumerate(botones):
+            tk.Button(
+                btn_frame,
+                text=texto,
+                width=22,
+                command=comando
+            ).grid(row=i, column=0, pady=4)
 
     # -----------------------------
     # VENTANAS SECUNDARIAS
@@ -97,7 +91,6 @@ class MainMenu(tk.Frame):
 # ---------------------------------------------
 def iniciar_sistema():
     root = tk.Tk()
-    root.resizable(False, False)
     MainMenu(master=root)
     root.mainloop()
 
@@ -107,6 +100,5 @@ def iniciar_sistema():
 # ---------------------------------------------
 if __name__ == "__main__":
     login_root = tk.Tk()
-    login_root.resizable(False, False)
     LoginWindow(master=login_root, on_login_success=iniciar_sistema)
     login_root.mainloop()
