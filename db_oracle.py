@@ -3,11 +3,12 @@
 # MANEJO DE CONEXIÓN A ORACLE DATABASE 21c/18c
 # Funciones para ejecutar SELECT, INSERT, UPDATE y DELETE
 # -----------------------------------------------------------
+print("USANDO db_oracle.py:", __file__)
 
 import cx_Oracle
 from db_config import DB_USER, DB_PASSWORD, get_dsn
 from tkinter import messagebox
-
+# db_config.py
 # -----------------------------------------------------------
 # OBTENER CONEXIÓN
 # -----------------------------------------------------------

@@ -1,4 +1,5 @@
 # db_config.py
+print("USANDO db_config.py:", __file__)
 
 DB_USER = "CITA_USER"
 DB_PASSWORD = "cita123"
