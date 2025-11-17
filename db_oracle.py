@@ -1,14 +1,15 @@
 # db_oracle.py
 # -----------------------------------------------------------
-# MANEJO DE CONEXIÓN A ORACLE DATABASE 21c/18c
+# Manejo de conexión a Oracle Database 21c/18c
 # Funciones para ejecutar SELECT, INSERT, UPDATE y DELETE
 # -----------------------------------------------------------
-print("USANDO db_oracle.py:", __file__)
 
 import cx_Oracle
-from db_config import DB_USER, DB_PASSWORD, get_dsn
 from tkinter import messagebox
-# db_config.py
+
+from db_config import DB_USER, DB_PASSWORD, DB_ENCODING, get_dsn
+
+
 # -----------------------------------------------------------
 # OBTENER CONEXIÓN
 # -----------------------------------------------------------
@@ -18,10 +19,13 @@ def get_connection():
     Si falla la conexión, muestra un error visual.
     """
     try:
+        dsn = get_dsn()
         conn = cx_Oracle.connect(
             user=DB_USER,
             password=DB_PASSWORD,
-            dsn=get_dsn()
+            dsn=dsn,
+            encoding=DB_ENCODING,
+            nencoding=DB_ENCODING,
         )
         return conn
 
@@ -38,6 +42,7 @@ def fetch_all(query, params=None):
     if conn is None:
         return []
 
+    cur = None
     try:
         cur = conn.cursor()
         cur.execute(query, params or {})
@@ -49,7 +54,8 @@ def fetch_all(query, params=None):
         return []
 
     finally:
-        cur.close()
+        if cur:
+            cur.close()
         conn.close()
 
 
@@ -61,6 +67,7 @@ def execute_query(query, params=None, commit=False):
     if conn is None:
         return
 
+    cur = None
     try:
         cur = conn.cursor()
         cur.execute(query, params or {})
@@ -72,5 +79,6 @@ def execute_query(query, params=None, commit=False):
         messagebox.showerror("Error SQL", f"Error en operación:\n{e}")
 
     finally:
-        cur.close()
+        if cur:
+            cur.close()
         conn.close()
