@@ -1,0 +1,115 @@
+-------------------------------------------------------------
+-- ESQUEMA COMPLETO DE BD PARA RESERVA DE CITAS MÉDICAS
+-------------------------------------------------------------
+
+-- USUARIO
+CREATE TABLE USUARIO (
+    ID_USUARIO NUMBER PRIMARY KEY,
+    NOMBRE_COMPLETO VARCHAR2(100),
+    DNI VARCHAR2(20) UNIQUE,
+    TIPO_USUARIO VARCHAR2(20),
+    TELEFONO VARCHAR2(20),
+    CORREO VARCHAR2(100),
+    ESTADO_ACTIVO CHAR(1) DEFAULT 'S',
+    FECHA_REGISTRO DATE DEFAULT SYSDATE
+);
+
+CREATE SEQUENCE SEQ_USUARIO START WITH 1;
+
+-------------------------------------------------------------
+-- ESPECIALIDAD MÉDICA
+-------------------------------------------------------------
+CREATE TABLE ESPECIALIDAD_MEDICA (
+    ID_ESPECIALIDAD NUMBER PRIMARY KEY,
+    NOMBRE_ESPECIALIDAD VARCHAR2(50) UNIQUE,
+    DESCRIPCION VARCHAR2(200)
+);
+
+CREATE SEQUENCE SEQ_ESPECIALIDAD START WITH 1;
+
+-------------------------------------------------------------
+-- MÉDICO
+-------------------------------------------------------------
+CREATE TABLE MEDICO (
+    ID_MEDICO NUMBER PRIMARY KEY,
+    ID_USUARIO NUMBER REFERENCES USUARIO(ID_USUARIO),
+    ID_ESPECIALIDAD NUMBER REFERENCES ESPECIALIDAD_MEDICA(ID_ESPECIALIDAD),
+    NUMERO_COLEGIATURA VARCHAR2(50) UNIQUE,
+    ESTADO_ACTIVO CHAR(1) DEFAULT 'S'
+);
+
+CREATE SEQUENCE SEQ_MEDICO START WITH 1;
+
+-------------------------------------------------------------
+-- PACIENTE
+-------------------------------------------------------------
+CREATE TABLE PACIENTE (
+    ID_PACIENTE NUMBER PRIMARY KEY,
+    ID_USUARIO NUMBER REFERENCES USUARIO(ID_USUARIO),
+    FECHA_NACIMIENTO DATE,
+    GRUPO_SANGUINEO VARCHAR2(10),
+    OBSERVACIONES VARCHAR2(200)
+);
+
+CREATE SEQUENCE SEQ_PACIENTE START WITH 1;
+
+-------------------------------------------------------------
+-- HORARIO DEL MÉDICO
+-------------------------------------------------------------
+CREATE TABLE HORARIO_MEDICO (
+    ID_HORARIO NUMBER PRIMARY KEY,
+    ID_MEDICO NUMBER REFERENCES MEDICO(ID_MEDICO),
+    FECHA DATE,
+    HORA_INICIO VARCHAR2(10),
+    HORA_FIN VARCHAR2(10),
+    CUPO_MAXIMO NUMBER,
+    CUPO_OCUPADO NUMBER DEFAULT 0,
+    ESTADO_DISPONIBLE CHAR(1) DEFAULT 'S'
+);
+
+CREATE SEQUENCE SEQ_HORARIO START WITH 1;
+
+-------------------------------------------------------------
+-- CITA MÉDICA (TABLA PRINCIPAL DEL CRUD)
+-------------------------------------------------------------
+CREATE TABLE CITA_MEDICA (
+    ID_CITA NUMBER PRIMARY KEY,
+    ID_PACIENTE NUMBER REFERENCES PACIENTE(ID_PACIENTE),
+    ID_HORARIO NUMBER REFERENCES HORARIO_MEDICO(ID_HORARIO),
+    ESTADO_CITA VARCHAR2(30),
+    ESTADO_PAGO VARCHAR2(30),
+    FECHA_RESERVA DATE DEFAULT SYSDATE,
+    MOTIVO VARCHAR2(200),
+    OBSERVACIONES VARCHAR2(200)
+);
+
+CREATE SEQUENCE SEQ_CITA START WITH 1;
+
+-------------------------------------------------------------
+-- PAGO CITA
+-------------------------------------------------------------
+CREATE TABLE PAGO_CITA (
+    ID_PAGO NUMBER PRIMARY KEY,
+    ID_CITA NUMBER REFERENCES CITA_MEDICA(ID_CITA),
+    MONTO NUMBER,
+    FECHA_PAGO DATE,
+    METODO_PAGO VARCHAR2(30),
+    ESTADO_PAGO VARCHAR2(20)
+);
+
+CREATE SEQUENCE SEQ_PAGO START WITH 1;
+
+-------------------------------------------------------------
+-- AUDITORÍA
+-------------------------------------------------------------
+CREATE TABLE AUDITORIA_CITA (
+    ID_AUDITORIA NUMBER PRIMARY KEY,
+    ID_CITA NUMBER,
+    OPERACION VARCHAR2(20),
+    USUARIO_ACCION VARCHAR2(100),
+    FECHA_HORA DATE,
+    VALOR_ANTERIOR CLOB,
+    VALOR_NUEVO CLOB
+);
+
+CREATE SEQUENCE SEQ_AUDITORIA START WITH 1;
