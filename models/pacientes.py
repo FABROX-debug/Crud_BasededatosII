@@ -1,21 +1,31 @@
-# models/pacientes.py
-# ---------------------------------------------
-# Funciones de consulta para PACIENTE
-# ---------------------------------------------
-
-from db_oracle import fetch_all
+from db_oracle import fetch_all, execute_query
 
 def listar_pacientes():
-    """
-    Retorna lista de pacientes:
-    (ID_PACIENTE, NOMBRE_COMPLETO)
-    """
+    return fetch_all("""
+        SELECT ID_PACIENTE, DNI, NOMBRE
+        FROM PACIENTES
+        ORDER BY NOMBRE
+    """)
+
+def crear_paciente(data):
     query = """
-        SELECT P.ID_PACIENTE,
-               U.NOMBRE_COMPLETO
-        FROM PACIENTE P
-        JOIN USUARIO U ON U.ID_USUARIO = P.ID_USUARIO
-        WHERE U.TIPO_USUARIO = 'PACIENTE'
-        ORDER BY U.NOMBRE_COMPLETO
+        INSERT INTO PACIENTES (ID_PACIENTE, DNI, NOMBRE, CORREO, TELEFONO, FECHA_REG)
+        VALUES (SEQ_PACIENTES.NEXTVAL, :dni, :nombre, :correo, :telefono, SYSDATE)
     """
-    return fetch_all(query)
+    execute_query(query, data, commit=True)
+
+def actualizar_paciente(id_paciente, data):
+    data["id"] = id_paciente
+    query = """
+        UPDATE PACIENTES
+        SET DNI = :dni,
+            NOMBRE = :nombre,
+            CORREO = :correo,
+            TELEFONO = :telefono
+        WHERE ID_PACIENTE = :id
+    """
+    execute_query(query, data, commit=True)
+
+def eliminar_paciente(id_paciente):
+    execute_query("DELETE FROM PACIENTES WHERE ID_PACIENTE = :id",
+                  {"id": id_paciente}, commit=True)

@@ -4,13 +4,12 @@
 # ---------------------------------------------
 
 import tkinter as tk
-from tkinter import ttk
 from ui.login import LoginWindow
 from ui.dashboard import Dashboard
 from ui.citas_form import CitasForm
 from ui.pacientes_form import PacientesForm
 from ui.medicos_form import MedicosForm
-from utils.styles import apply_styles, BACKGROUND_COLOR, PRIMARY_COLOR
+from utils.styles import apply_styles
 
 
 class MainMenu(tk.Frame):
@@ -21,8 +20,8 @@ class MainMenu(tk.Frame):
         self.master.title("Sistema de Reserva de Citas Médicas")
         self.master.resizable(False, False)
 
-        self.ancho = 440
-        self.alto = 340
+        self.ancho = 420
+        self.alto = 320
         self.centrar_ventana()
 
         apply_styles(self.master)
@@ -39,43 +38,33 @@ class MainMenu(tk.Frame):
         self.master.geometry(f"{w}x{h}+{x}+{y}")
 
     def crear_widgets(self):
-        cont = tk.Frame(self.master, padx=20, pady=20, bg=BACKGROUND_COLOR)
+        cont = tk.Frame(self.master, padx=20, pady=20)
         cont.pack(expand=True, fill="both")
 
-        header = tk.Frame(cont, bg=BACKGROUND_COLOR)
-        header.pack(pady=(0, 10))
         tk.Label(
-            header,
+            cont,
             text="Sistema de Reserva de Citas Médicas",
-            font=("Segoe UI", 15, "bold"),
-            bg=BACKGROUND_COLOR,
-            fg=PRIMARY_COLOR,
-        ).pack()
-        tk.Label(
-            header,
-            text="Menú principal",
-            font=("Segoe UI", 10),
-            bg=BACKGROUND_COLOR,
-        ).pack()
+            font=("Segoe UI", 14, "bold")
+        ).pack(pady=(0, 15))
 
-        card = ttk.Frame(cont, style="Card.TFrame", padding=18)
-        card.pack(expand=True, fill="both")
+        btn_frame = tk.Frame(cont)
+        btn_frame.pack()
 
         botones = [
             ("Dashboard", self.abrir_dashboard),
             ("Gestión de Citas", self.abrir_citas),
             ("Ver Pacientes", self.abrir_pacientes),
             ("Ver Médicos", self.abrir_medicos),
-            ("Salir", self.master.destroy),
+            ("Salir", self.master.destroy)
         ]
 
         for i, (texto, comando) in enumerate(botones):
-            ttk.Button(
-                card,
+            tk.Button(
+                btn_frame,
                 text=texto,
                 width=22,
-                command=comando,
-            ).grid(row=i, column=0, pady=6, padx=5)
+                command=comando
+            ).grid(row=i, column=0, pady=4)
 
     # -----------------------------
     # VENTANAS SECUNDARIAS

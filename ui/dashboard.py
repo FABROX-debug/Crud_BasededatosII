@@ -6,8 +6,6 @@
 import tkinter as tk
 from tkinter import ttk
 from models.citas import listar_citas
-from utils.styles import apply_styles, BACKGROUND_COLOR, PRIMARY_COLOR
-
 
 class Dashboard(tk.Frame):
     def __init__(self, master=None):
@@ -17,25 +15,21 @@ class Dashboard(tk.Frame):
         self.master.title("Sistema de Reserva de Citas Médicas")
         self.master.geometry("1050x650")
 
-        apply_styles(self.master)
         self.create_widgets()
         self.cargar_citas()
 
     # -------------------------------------------------------
     def create_widgets(self):
-        header = tk.Frame(self.master, bg=BACKGROUND_COLOR)
-        header.pack(fill="x", pady=(10, 0))
-        tk.Label(header, text="Dashboard", font=("Segoe UI", 18, "bold"), bg=BACKGROUND_COLOR, fg=PRIMARY_COLOR).pack()
-        tk.Label(header, text="Próximas citas", font=("Segoe UI", 10), bg=BACKGROUND_COLOR).pack()
+        # Título
+        titulo = tk.Label(self.master, text="Dashboard", font=("Segoe UI", 18, "bold"))
+        titulo.pack(pady=15)
 
-        tabla_frame = ttk.Frame(self.master, style="Card.TFrame", padding=14)
-        tabla_frame.pack(pady=14, padx=14, fill="both", expand=True)
-
+        # Tabla de próximas citas
         self.tree = ttk.Treeview(
-            tabla_frame,
+            self.master,
             columns=("ID", "Paciente", "Medico", "Especialidad", "Fecha", "Hora", "Estado", "Pago"),
             show="headings",
-            height=15,
+            height=15
         )
 
         headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado Cita", "Estado Pago"]
@@ -43,7 +37,7 @@ class Dashboard(tk.Frame):
             self.tree.heading(i, text=col)
             self.tree.column(i, width=130)
 
-        self.tree.pack(pady=5, fill="both", expand=True)
+        self.tree.pack(pady=10, fill="x")
 
     # -------------------------------------------------------
     def cargar_citas(self):

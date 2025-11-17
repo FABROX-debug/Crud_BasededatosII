@@ -1,21 +1,40 @@
 # models/medicos.py
-# ---------------------------------------------
-# Funciones de consulta para MEDICO
-# ---------------------------------------------
+from db_oracle import fetch_all, execute_query
 
-from db_oracle import fetch_all
-
+# LISTAR
 def listar_medicos():
-    """
-    Retorna lista de médicos:
-    (ID_MEDICO, NOMBRE_COMPLETO)
-    """
+    return fetch_all("""
+        SELECT ID_MEDICO, DNI, NOMBRE, ESPECIALIDAD, ESTADO
+        FROM MEDICOS
+        ORDER BY NOMBRE
+    """)
+
+# CREAR
+def crear_medico(data):
     query = """
-        SELECT M.ID_MEDICO,
-               U.NOMBRE_COMPLETO
-        FROM MEDICO M
-        JOIN USUARIO U ON U.ID_USUARIO = M.ID_USUARIO
-        WHERE U.TIPO_USUARIO = 'MEDICO'
-        ORDER BY U.NOMBRE_COMPLETO
+        INSERT INTO MEDICOS (
+            ID_MEDICO, DNI, NOMBRE, ESPECIALIDAD, ESTADO
+        )
+        VALUES (
+            SEQ_MEDICOS.NEXTVAL, :dni, :nombre, :especialidad, :estado
+        )
     """
-    return fetch_all(query)
+    execute_query(query, data, commit=True)
+
+# ACTUALIZAR
+def actualizar_medico(id_medico, data):
+    data["id"] = id_medico
+    query = """
+        UPDATE MEDICOS
+        SET DNI = :dni,
+            NOMBRE = :nombre,
+            ESPECIALIDAD = :especialidad,
+            ESTADO = :estado
+        WHERE ID_MEDICO = :id
+    """
+    execute_query(query, data, commit=True)
+
+# ELIMINAR
+def eliminar_medico(id_medico):
+    execute_query("DELETE FROM MEDICOS WHERE ID_MEDICO = :id",
+                  {"id": id_medico}, commit=True)

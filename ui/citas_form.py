@@ -10,7 +10,6 @@ from models.pacientes import listar_pacientes
 from models.medicos import listar_medicos
 from models.horarios import listar_horarios_disponibles
 from utils.validators import es_fecha_valida
-from utils.styles import apply_styles, BACKGROUND_COLOR, PRIMARY_COLOR
 
 
 class CitasForm(tk.Frame):
@@ -21,25 +20,21 @@ class CitasForm(tk.Frame):
         self.master = master
 
         self.master.title("Gestión de Citas Médicas")
-        self.master.geometry("1050x670")
+        self.master.geometry("1050x650")
 
         self.id_cita_seleccionada = None
 
-        apply_styles(self.master)
         self.crear_widgets()
         self.cargar_tabla()
 
     # -------------------------------------------------------
     def crear_widgets(self):
 
-        header = tk.Frame(self.master, bg=BACKGROUND_COLOR)
-        header.pack(fill="x", pady=10)
-        tk.Label(header, text="Gestión de Citas Médicas",
-                 font=("Segoe UI", 18, "bold"), bg=BACKGROUND_COLOR, fg=PRIMARY_COLOR).pack()
-        tk.Label(header, text="Cree y actualice reservas en segundos", bg=BACKGROUND_COLOR).pack()
+        tk.Label(self.master, text="Gestión de Citas Médicas",
+                 font=("Segoe UI", 18, "bold")).pack(pady=10)
 
-        contenedor = ttk.Frame(self.master, style="Section.TFrame", padding=12)
-        contenedor.pack(pady=8, padx=10, fill="x")
+        contenedor = tk.Frame(self.master)
+        contenedor.pack(pady=10)
 
         # -----------------------------
         # CAMPOS DEL FORMULARIO
@@ -76,31 +71,28 @@ class CitasForm(tk.Frame):
         # -----------------------------
         # BOTONES
         # -----------------------------
-        btn_frame = tk.Frame(self.master, bg=BACKGROUND_COLOR)
-        btn_frame.pack(pady=6)
+        btn_frame = tk.Frame(self.master)
+        btn_frame.pack(pady=10)
 
-        ttk.Button(btn_frame, text="Nuevo", width=14, command=self.limpiar_formulario).grid(row=0, column=0, padx=6)
-        ttk.Button(btn_frame, text="Guardar", width=14, command=self.guardar).grid(row=0, column=1, padx=6)
-        ttk.Button(btn_frame, text="Eliminar", width=14, command=self.eliminar).grid(row=0, column=2, padx=6)
+        tk.Button(btn_frame, text="Nuevo", width=12, command=self.limpiar_formulario).grid(row=0, column=0, padx=5)
+        tk.Button(btn_frame, text="Guardar", width=12, command=self.guardar).grid(row=0, column=1, padx=5)
+        tk.Button(btn_frame, text="Eliminar", width=12, command=self.eliminar).grid(row=0, column=2, padx=5)
 
         # -----------------------------
         # TABLA
         # -----------------------------
-        tabla_wrapper = ttk.Frame(self.master, style="Card.TFrame", padding=12)
-        tabla_wrapper.pack(pady=8, padx=10, fill="both", expand=True)
-
         self.tree = ttk.Treeview(
-            tabla_wrapper,
+            self.master,
             columns=("ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado", "Pago"),
             show="headings",
-            height=15,
+            height=15
         )
         headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado Cita", "Estado Pago"]
         for i, col in enumerate(headers):
             self.tree.heading(i, text=col)
             self.tree.column(i, width=130)
 
-        self.tree.pack(pady=4, fill="both", expand=True)
+        self.tree.pack(pady=10, fill="x")
         self.tree.bind("<<TreeviewSelect>>", self.seleccionar_fila)
 
         self.cargar_pacientes()
@@ -133,6 +125,7 @@ class CitasForm(tk.Frame):
 
         fecha = self.txt_fecha.get().strip()
         if not es_fecha_valida(fecha):
+            from tkinter import messagebox
             messagebox.showwarning("Fecha inválida", "Ingrese una fecha válida en formato YYYY-MM-DD.")
             return
 
@@ -155,14 +148,14 @@ class CitasForm(tk.Frame):
 
     # -------------------------------------------------------
     def seleccionar_fila(self, event):
-        if not self.tree.selection():
-            return
         item = self.tree.selection()[0]
         valores = self.tree.item(item, "values")
         self.id_cita_seleccionada = valores[0]
 
     # -------------------------------------------------------
     def guardar(self):
+        from tkinter import messagebox
+
         fecha = self.txt_fecha.get().strip()
         if not es_fecha_valida(fecha):
             messagebox.showwarning("Fecha inválida", "Ingrese una fecha válida en formato YYYY-MM-DD.")
@@ -208,10 +201,6 @@ class CitasForm(tk.Frame):
     def eliminar(self):
         if self.id_cita_seleccionada is None:
             messagebox.showwarning("Aviso", "Seleccione una cita para eliminar.")
-            return
-
-        confirmar = messagebox.askyesno("Confirmar", "¿Está seguro de eliminar la cita seleccionada?")
-        if not confirmar:
             return
 
         try:
