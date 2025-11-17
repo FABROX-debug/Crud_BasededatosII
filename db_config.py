@@ -1,12 +1,25 @@
 # db_config.py
-print("USANDO db_config.py:", __file__)
+"""
+Configuración centralizada para la conexión a Oracle Database.
+Los valores pueden sobreescribirse mediante variables de entorno,
+lo que facilita la configuración en diferentes entornos.
+"""
 
-DB_USER = "CITA_USER"
-DB_PASSWORD = "cita123"
-DB_HOST = "localhost"
-DB_PORT = 1521
-DB_SERVICE = "XEPDB1"
+import os
+
+DB_USER = os.getenv("DB_USER", "CITA_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "cita123")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", 1521))
+DB_SERVICE = os.getenv("DB_SERVICE", "XEPDB1")
+DB_ENCODING = os.getenv("DB_ENCODING", "UTF-8")
 
 
 def get_dsn():
-    return f"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST={DB_HOST})(PORT={DB_PORT}))(CONNECT_DATA=(SERVICE_NAME={DB_SERVICE})))"
+    """
+    Construye un descriptor de servicio (DSN) válido para Oracle.
+    Se utiliza la utilidad nativa de cx_Oracle para evitar errores de formato.
+    """
+    import cx_Oracle  # import local para evitar dependencias en tiempo de carga
+
+    return cx_Oracle.makedsn(DB_HOST, DB_PORT, service_name=DB_SERVICE)

@@ -6,7 +6,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from db_oracle import fetch_all
-from utils.styles import apply_styles
+from utils.styles import apply_styles, BACKGROUND_COLOR, PRIMARY_COLOR
 
 # variable global opcional para guardar el usuario logueado
 USUARIO_LOGEADO = None
@@ -22,8 +22,8 @@ class LoginWindow(tk.Frame):
         self.master.resizable(False, False)
 
         # tamaño fijo de la ventana
-        self.ancho = 360
-        self.alto = 260
+        self.ancho = 380
+        self.alto = 280
         self.centrar_ventana()
 
         apply_styles(self.master)
@@ -42,39 +42,45 @@ class LoginWindow(tk.Frame):
 
     # -------------------------------------------------------
     def crear_widgets(self):
-        cont_principal = tk.Frame(self.master, padx=15, pady=15)
+        cont_principal = tk.Frame(self.master, padx=18, pady=18, bg=BACKGROUND_COLOR)
         cont_principal.pack(expand=True, fill="both")
 
         tk.Label(
             cont_principal,
             text="Sistema de Reserva de Citas Médicas",
-            font=("Segoe UI", 11, "bold")
-        ).pack(pady=(0, 10))
+            font=("Segoe UI", 12, "bold"),
+            bg=BACKGROUND_COLOR,
+            fg=PRIMARY_COLOR,
+        ).pack(pady=(0, 8))
 
-        frm = tk.Frame(cont_principal)
+        card = ttk.Frame(cont_principal, padding=16, style="Card.TFrame")
+        card.pack(fill="both", expand=True)
+
+        frm = tk.Frame(card, bg="white")
         frm.pack(pady=5)
 
-        tk.Label(frm, text="Usuario (DNI):").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-        self.txt_usuario = tk.Entry(frm, width=25)
-        self.txt_usuario.grid(row=0, column=1, padx=5, pady=5)
+        tk.Label(frm, text="Usuario (DNI):", bg="white").grid(row=0, column=0, padx=5, pady=6, sticky="e")
+        self.txt_usuario = tk.Entry(frm, width=28)
+        self.txt_usuario.grid(row=0, column=1, padx=5, pady=6)
 
-        tk.Label(frm, text="Contraseña:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-        self.txt_password = tk.Entry(frm, width=25, show="*")
-        self.txt_password.grid(row=1, column=1, padx=5, pady=5)
+        tk.Label(frm, text="Contraseña:", bg="white").grid(row=1, column=0, padx=5, pady=6, sticky="e")
+        self.txt_password = tk.Entry(frm, width=28, show="*")
+        self.txt_password.grid(row=1, column=1, padx=5, pady=6)
 
         btn_login = ttk.Button(
-            cont_principal,
+            card,
             text="Iniciar Sesión",
             width=20,
-            command=self.validar_login
+            command=self.validar_login,
         )
-        btn_login.pack(pady=(10, 5))
+        btn_login.pack(pady=(12, 6))
 
         tk.Label(
-            cont_principal,
+            card,
             text="* Por ahora la contraseña es el correo registrado.",
             font=("Segoe UI", 8),
-            fg="gray"
+            fg="gray",
+            bg="white",
         ).pack()
 
     # -------------------------------------------------------
@@ -107,7 +113,7 @@ class LoginWindow(tk.Frame):
         USUARIO_LOGEADO = {
             "id": user_id,
             "nombre": nombre,
-            "tipo": tipo
+            "tipo": tipo,
         }
 
         messagebox.showinfo("Bienvenido", f"Hola {nombre}!")
