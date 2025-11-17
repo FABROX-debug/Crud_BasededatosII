@@ -7,8 +7,8 @@ from db_oracle import fetch_all, execute_query
 def listar_horarios_disponibles(id_medico, fecha_str):
     query = """
         SELECT ID_HORARIO,
-               TO_CHAR(HORA_INICIO, 'HH24:MI'),
-               TO_CHAR(HORA_FIN, 'HH24:MI')
+               HORA_INICIO,
+               HORA_FIN
         FROM HORARIOS
         WHERE ID_MEDICO = :id_medico
           AND FECHA = TO_DATE(:fecha, 'YYYY-MM-DD')
@@ -27,14 +27,13 @@ def listar_horarios_disponibles(id_medico, fecha_str):
 def listar_horarios():
     query = """
         SELECT H.ID_HORARIO,
-               U.NOMBRE AS MEDICO,
+               M.NOMBRE AS MEDICO,
                TO_CHAR(H.FECHA, 'YYYY-MM-DD'),
-               TO_CHAR(H.HORA_INICIO, 'HH24:MI'),
-               TO_CHAR(H.HORA_FIN, 'HH24:MI'),
+               H.HORA_INICIO,
+               H.HORA_FIN,
                H.DISPONIBLE
         FROM HORARIOS H
         JOIN MEDICOS M ON M.ID_MEDICO = H.ID_MEDICO
-        JOIN USUARIOS U ON U.ID_USUARIO = M.ID_USUARIO
         ORDER BY H.FECHA, H.HORA_INICIO
     """
     return fetch_all(query)
@@ -57,8 +56,8 @@ def crear_horario(data):
             SEQ_HORARIOS.NEXTVAL,
             :id_medico,
             TO_DATE(:fecha, 'YYYY-MM-DD'),
-            TO_DATE(:hora_inicio, 'HH24:MI'),
-            TO_DATE(:hora_fin, 'HH24:MI'),
+            :hora_inicio,
+            :hora_fin,
             :disponible
         )
     """
@@ -74,8 +73,8 @@ def actualizar_horario(id_horario, data):
         UPDATE HORARIOS
         SET ID_MEDICO = :id_medico,
             FECHA = TO_DATE(:fecha, 'YYYY-MM-DD'),
-            HORA_INICIO = TO_DATE(:hora_inicio, 'HH24:MI'),
-            HORA_FIN = TO_DATE(:hora_fin, 'HH24:MI'),
+            HORA_INICIO = :hora_inicio,
+            HORA_FIN = :hora_fin,
             DISPONIBLE = :disponible
         WHERE ID_HORARIO = :id
     """
