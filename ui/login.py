@@ -87,12 +87,13 @@ class LoginWindow(tk.Frame):
             return
 
         query = """
-            SELECT ID_USUARIO, NOMBRE_COMPLETO, TIPO_USUARIO
-            FROM USUARIO
+            SELECT ID_USUARIO, NOMBRE, TIPO
+            FROM USUARIOS
             WHERE DNI = :dni
-              AND CORREO = :password
-              AND ESTADO_ACTIVO = 'S'
+              AND PASSWORD = :password
+              AND ESTADO = 'S'
         """
+
         params = {"dni": usuario, "password": password}
         resultado = fetch_all(query, params)
 

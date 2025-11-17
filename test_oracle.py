@@ -1,9 +1,8 @@
-import cx_Oracle
-from db_config import DB_USER, DB_PASSWORD, get_dsn
+from db_oracle import get_connection
 
-try:
-    conn = cx_Oracle.connect(DB_USER, DB_PASSWORD, get_dsn())
-    print("Conexión exitosa! ✔")
-    conn.close()
-except Exception as e:
-    print("Error:", e)
+conn = get_connection()
+
+if conn:
+    print("Conexión exitosa a Oracle!")
+else:
+    print("Fallo en la conexión")
