@@ -1,12 +1,17 @@
+
+# models/pacientes.py - VERSIÓN CORREGIDA
 from db_oracle import fetch_all, execute_query
 
 
 def listar_pacientes():
+    """Lista todos los pacientes con TODOS los campos necesarios"""
     return fetch_all("""
         SELECT 
             ID_PACIENTE,
             DNI,
-            NOMBRE
+            NOMBRE,
+            NVL(CORREO, '') AS CORREO,
+            NVL(TELEFONO, '') AS TELEFONO
         FROM PACIENTES
         ORDER BY NOMBRE
     """)

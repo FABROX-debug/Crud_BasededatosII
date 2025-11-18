@@ -1,10 +1,7 @@
-# models/citas.py
+# models/citas.py - VERSIÓN CORREGIDA
 from db_oracle import fetch_all, execute_query
 
 
-# ------------------------------------------------------------
-# LISTAR CITAS CON FORMATO PARA TABLA
-# ------------------------------------------------------------
 def listar_citas():
     query = """
         SELECT  
@@ -25,10 +22,8 @@ def listar_citas():
     return fetch_all(query)
 
 
-# ------------------------------------------------------------
-# CREAR CITA
-# ------------------------------------------------------------
 def crear_cita(data):
+    """Crea una cita y marca el horario como NO disponible"""
     query = """
         INSERT INTO CITAS (
             ID_CITA, ID_PACIENTE, ID_MEDICO, ID_HORARIO, MOTIVO, FECHA_REG
@@ -44,11 +39,22 @@ def crear_cita(data):
     """
     execute_query(query, data, commit=True)
 
+    # Marcar horario como NO disponible
+    execute_query(
+        "UPDATE HORARIOS SET DISPONIBLE = 'N' WHERE ID_HORARIO = :id",
+        {"id": data["id_horario"]},
+        commit=True
+    )
 
-# ------------------------------------------------------------
-# ACTUALIZAR CITA
-# ------------------------------------------------------------
+
 def actualizar_cita(id_cita, data):
+    """Actualiza una cita y ajusta disponibilidad de horarios"""
+    # Obtener horario anterior
+    horario_anterior = fetch_all(
+        "SELECT ID_HORARIO FROM CITAS WHERE ID_CITA = :id",
+        {"id": id_cita}
+    )
+
     data["id_cita"] = id_cita
     query = """
         UPDATE CITAS
@@ -61,22 +67,47 @@ def actualizar_cita(id_cita, data):
     """
     execute_query(query, data, commit=True)
 
+    # Liberar horario anterior si cambió
+    if horario_anterior and horario_anterior[0][0] != data["id_horario"]:
+        execute_query(
+            "UPDATE HORARIOS SET DISPONIBLE = 'S' WHERE ID_HORARIO = :id",
+            {"id": horario_anterior[0][0]},
+            commit=True
+        )
 
-# ------------------------------------------------------------
-# ELIMINAR
-# ------------------------------------------------------------
+        # Marcar nuevo horario como ocupado
+        execute_query(
+            "UPDATE HORARIOS SET DISPONIBLE = 'N' WHERE ID_HORARIO = :id",
+            {"id": data["id_horario"]},
+            commit=True
+        )
+
+
 def eliminar_cita(id_cita):
+    """Elimina una cita y libera el horario"""
+    # Obtener horario antes de eliminar
+    horario = fetch_all(
+        "SELECT ID_HORARIO FROM CITAS WHERE ID_CITA = :id",
+        {"id": id_cita}
+    )
+
     execute_query(
         "DELETE FROM CITAS WHERE ID_CITA = :id",
         {"id": id_cita},
         commit=True
     )
 
+    # Liberar horario
+    if horario:
+        execute_query(
+            "UPDATE HORARIOS SET DISPONIBLE = 'S' WHERE ID_HORARIO = :id",
+            {"id": horario[0][0]},
+            commit=True
+        )
 
-# ------------------------------------------------------------
-# HORARIOS DISPONIBLES
-# ------------------------------------------------------------
+
 def horarios_disponibles(id_medico, fecha):
+    """Lista horarios disponibles que NO tienen citas asignadas"""
     query = """
         SELECT 
             ID_HORARIO,
@@ -86,9 +117,6 @@ def horarios_disponibles(id_medico, fecha):
         WHERE ID_MEDICO = :id_medico
           AND FECHA = TO_DATE(:fecha, 'YYYY-MM-DD')
           AND DISPONIBLE = 'S'
-          AND ID_HORARIO NOT IN (
-                SELECT ID_HORARIO FROM CITAS
-          )
         ORDER BY HORA_INICIO
     """
     return fetch_all(query, {
