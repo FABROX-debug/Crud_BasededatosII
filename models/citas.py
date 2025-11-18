@@ -11,9 +11,12 @@ def listar_citas():
                 M.NOMBRE AS MEDICO,
                 M.ESPECIALIDAD,
                 TO_CHAR(H.FECHA, 'YYYY-MM-DD') AS FECHA,
-                H.HORA_INICIO || ' - ' || H.HORA_FIN AS HORARIO,
-                C.MOTIVO,
-                TO_CHAR(C.FECHA_REG, 'YYYY-MM-DD HH24:MI')
+                H.ID_HORARIO || ' - ' || TO_CHAR(H.FECHA, 'YYYY-MM-DD') || ' | ' ||
+                H.HORA_INICIO || ' a ' || H.HORA_FIN AS HORARIO,
+                NVL(C.MOTIVO, '') AS MOTIVO,
+                P.ID_PACIENTE,
+                M.ID_MEDICO,
+                H.ID_HORARIO
         FROM CITAS C
         JOIN PACIENTES P ON P.ID_PACIENTE = C.ID_PACIENTE
         JOIN MEDICOS M   ON M.ID_MEDICO = C.ID_MEDICO

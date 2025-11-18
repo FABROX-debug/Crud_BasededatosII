@@ -27,15 +27,16 @@ class Dashboard(tk.Frame):
         # Tabla de próximas citas
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "Paciente", "Medico", "Especialidad", "Fecha", "Hora", "Estado", "Pago"),
+            columns=("ID", "Paciente", "Medico", "Especialidad", "Fecha", "Horario", "Motivo"),
             show="headings",
             height=15
         )
 
-        headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado Cita", "Estado Pago"]
+        headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Horario", "Motivo"]
+        widths = [60, 180, 180, 150, 110, 170, 200]
         for i, col in enumerate(headers):
             self.tree.heading(i, text=col)
-            self.tree.column(i, width=130)
+            self.tree.column(i, width=widths[i])
 
         self.tree.pack(pady=10, fill="x")
 
@@ -43,7 +44,7 @@ class Dashboard(tk.Frame):
     def cargar_citas(self):
         registros = listar_citas()
         for row in registros:
-            self.tree.insert("", tk.END, values=row)
+            self.tree.insert("", tk.END, values=row[:7])
 
 
 # MAIN PARA TESTEAR

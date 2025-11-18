@@ -8,7 +8,11 @@ from tkinter import ttk, messagebox
 from models.citas import listar_citas, crear_cita, actualizar_cita, eliminar_cita
 from models.pacientes import listar_pacientes
 from models.medicos import listar_medicos
-from models.horarios import listar_horarios_disponibles
+from models.horarios import (
+    listar_horarios_disponibles,
+    listar_fechas_disponibles,
+    obtener_horario_por_id,
+)
 from utils.validators import es_fecha_valida
 
 
@@ -23,6 +27,11 @@ class CitasForm(tk.Frame):
         self.master.geometry("1050x650")
 
         self.id_cita_seleccionada = None
+        self.horarios_cache = []
+        self.metadatos_citas = {}
+        self.pacientes_cache = []
+        self.medicos_cache = []
+        self.horario_actual_edicion = None
 
         self.crear_widgets()
         self.cargar_tabla()
@@ -40,34 +49,29 @@ class CitasForm(tk.Frame):
         # CAMPOS DEL FORMULARIO
         # -----------------------------
         tk.Label(contenedor, text="Paciente:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        self.cbo_paciente = ttk.Combobox(contenedor, width=40)
+        self.cbo_paciente = ttk.Combobox(contenedor, width=40, state="readonly")
         self.cbo_paciente.grid(row=0, column=1)
 
         tk.Label(contenedor, text="Médico:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
-        self.cbo_medico = ttk.Combobox(contenedor, width=40)
+        self.cbo_medico = ttk.Combobox(contenedor, width=40, state="readonly")
         self.cbo_medico.grid(row=1, column=1)
-        self.cbo_medico.bind("<<ComboboxSelected>>", self.actualizar_horarios)
+        self.cbo_medico.bind("<<ComboboxSelected>>", self.on_medico_cambiado)
 
-        tk.Label(contenedor, text="Fecha: (YYYY-MM-DD)").grid(row=2, column=0, sticky="e", padx=5, pady=5)
-        self.txt_fecha = tk.Entry(contenedor, width=20)
-        self.txt_fecha.grid(row=2, column=1, sticky="w")
+        tk.Label(contenedor, text="Fecha disponible:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        self.cbo_fecha = ttk.Combobox(contenedor, width=18, state="readonly")
+        self.cbo_fecha.grid(row=2, column=1, sticky="w")
+        self.cbo_fecha.bind("<<ComboboxSelected>>", self.actualizar_horarios)
+        tk.Button(contenedor, text="Ver fechas", width=14,
+                  command=self.cargar_fechas_para_medico).grid(row=2, column=2, padx=5)
 
         tk.Label(contenedor, text="Horario:").grid(row=3, column=0, sticky="e", padx=5, pady=5)
-        self.cbo_horario = ttk.Combobox(contenedor, width=40)
+        self.cbo_horario = ttk.Combobox(contenedor, width=40, state="readonly")
         self.cbo_horario.grid(row=3, column=1)
+        self.cbo_horario.bind("<<ComboboxSelected>>", self.establecer_fecha_desde_horario)
 
-        tk.Label(contenedor, text="Motivo:").grid(row=4, column=0, sticky="e", padx=5, pady=5)
-        self.txt_motivo = tk.Entry(contenedor, width=40)
-        self.txt_motivo.grid(row=4, column=1)
-
-        tk.Label(contenedor, text="Estado Cita:").grid(row=5, column=0, sticky="e", padx=5, pady=5)
-        self.cbo_estado = ttk.Combobox(contenedor, values=["PENDIENTE", "CONFIRMADA", "CANCELADA"], width=20)
-        self.cbo_estado.grid(row=5, column=1, sticky="w")
-
-        tk.Label(contenedor, text="Estado Pago:").grid(row=6, column=0, sticky="e", padx=5, pady=5)
-        self.cbo_pago = ttk.Combobox(contenedor, values=["PENDIENTE", "PAGADO"], width=20)
-        self.cbo_pago.grid(row=6, column=1, sticky="w")
-
+        tk.Label(contenedor, text="Motivo/Observaciones:").grid(row=4, column=0, sticky="e", padx=5, pady=5)
+        self.txt_motivo = tk.Entry(contenedor, width=60)
+        self.txt_motivo.grid(row=4, column=1, sticky="w", pady=5)
         # -----------------------------
         # BOTONES
         # -----------------------------
@@ -83,14 +87,15 @@ class CitasForm(tk.Frame):
         # -----------------------------
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado", "Pago"),
+            columns=("ID", "Paciente", "Médico", "Especialidad", "Fecha", "Horario", "Motivo"),
             show="headings",
             height=15
         )
-        headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado Cita", "Estado Pago"]
+        headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Horario", "Motivo"]
+        widths = [60, 180, 180, 150, 100, 160, 200]
         for i, col in enumerate(headers):
             self.tree.heading(i, text=col)
-            self.tree.column(i, width=130)
+            self.tree.column(i, width=widths[i])
 
         self.tree.pack(pady=10, fill="x")
         self.tree.bind("<<TreeviewSelect>>", self.seleccionar_fila)
@@ -104,59 +109,153 @@ class CitasForm(tk.Frame):
             self.tree.delete(item)
 
         registros = listar_citas()
+        self.metadatos_citas = {}
         for row in registros:
-            self.tree.insert("", tk.END, values=row)
+            if len(row) >= 10:
+                self.metadatos_citas[row[0]] = {
+                    "id_paciente": row[7],
+                    "id_medico": row[8],
+                    "id_horario": row[9],
+                }
+            self.tree.insert("", tk.END, values=row[:7])
 
     # -------------------------------------------------------
     def cargar_pacientes(self):
-        pacientes = listar_pacientes()
-        self.cbo_paciente["values"] = [f"{p[0]} - {p[1]}" for p in pacientes]
+        self.pacientes_cache = listar_pacientes()
+        self.cbo_paciente["values"] = [f"{p[0]} - {p[1]} (DNI: {p[2]})" for p in self.pacientes_cache]
 
     # -------------------------------------------------------
     def cargar_medicos(self):
-        medicos = listar_medicos()
-        self.cbo_medico["values"] = [f"{m[0]} - {m[1]}" for m in medicos]
+        self.medicos_cache = listar_medicos()
+        self.cbo_medico["values"] = [f"{m[0]} - {m[1]} ({m[3]})" for m in self.medicos_cache]
 
     # -------------------------------------------------------
-    def actualizar_horarios(self, event=None):
-        medico_txt = self.cbo_medico.get()
-        if medico_txt == "":
-            return
-
-        fecha = self.txt_fecha.get().strip()
-        if not es_fecha_valida(fecha):
-            from tkinter import messagebox
-            messagebox.showwarning("Fecha inválida", "Ingrese una fecha válida en formato YYYY-MM-DD.")
-            return
-
-        id_medico = int(medico_txt.split(" - ")[0])
-
-        horarios = listar_horarios_disponibles(id_medico, fecha)
-        self.cbo_horario["values"] = [f"{h[0]} - {h[1]} a {h[2]}" for h in horarios]
+    def on_medico_cambiado(self, event=None):
+        """Cuando cambia el médico, refrescamos fechas y horarios."""
+        self.cbo_fecha.set("")
         self.cbo_horario.set("")
+        self.horarios_cache = []
+        if not self.id_cita_seleccionada:
+            self.horario_actual_edicion = None
+        self.cargar_fechas_para_medico()
+
+    # -------------------------------------------------------
+    def cargar_fechas_para_medico(self, horario_actual=None):
+        medico_id = self._extraer_id_desde_combo(self.cbo_medico.get())
+        if medico_id is None:
+            return
+
+        fechas = listar_fechas_disponibles(medico_id, horario_actual or self.horario_actual_edicion)
+        self.cbo_fecha["values"] = fechas
+
+        if fechas:
+            fecha_seleccion = None
+            if self.horario_actual_edicion:
+                actual = obtener_horario_por_id(self.horario_actual_edicion)
+                if actual:
+                    fecha_seleccion = actual[2]
+            if fecha_seleccion and fecha_seleccion in fechas:
+                self.cbo_fecha.set(fecha_seleccion)
+            else:
+                self.cbo_fecha.current(0)
+            self.actualizar_horarios()
+        else:
+            messagebox.showinfo(
+                "Sin fechas",
+                "El médico seleccionado no tiene fechas disponibles.",
+            )
+
+    # -------------------------------------------------------
+    def actualizar_horarios(self, event=None, horario_actual=None):
+        medico_id = self._extraer_id_desde_combo(self.cbo_medico.get())
+        fecha = self.cbo_fecha.get().strip()
+
+        if medico_id is None or fecha == "":
+            return
+
+        if not es_fecha_valida(fecha):
+            messagebox.showwarning("Fecha inválida", "Seleccione una fecha válida (YYYY-MM-DD).")
+            return
+
+        horario_ref = horario_actual or self.horario_actual_edicion
+        self.horarios_cache = listar_horarios_disponibles(medico_id, fecha, horario_ref)
+        opciones = [self._formatear_horario(h) for h in self.horarios_cache]
+
+        self.cbo_horario["values"] = opciones
+        self.cbo_horario.set("")
+
+        if opciones:
+            if horario_ref:
+                for idx, h in enumerate(self.horarios_cache):
+                    if h[0] == horario_ref:
+                        self.cbo_horario.current(idx)
+                        break
+                else:
+                    self.cbo_horario.current(0)
+            else:
+                self.cbo_horario.current(0)
+            self.establecer_fecha_desde_horario()
+        else:
+            messagebox.showinfo(
+                "Sin horarios",
+                "No hay horarios disponibles para esa fecha.",
+            )
+
+    # -------------------------------------------------------
+    def establecer_fecha_desde_horario(self, event=None):
+        if not self.cbo_horario.get() or not self.horarios_cache:
+            return
+
+        try:
+            horario_id = int(self.cbo_horario.get().split(" - ")[0])
+        except ValueError:
+            return
+
+        for h in self.horarios_cache:
+            if h[0] == horario_id:
+                if self.cbo_fecha.get() != h[1]:
+                    self.cbo_fecha.set(h[1])
+                break
 
     # -------------------------------------------------------
     def limpiar_formulario(self):
         self.id_cita_seleccionada = None
+        self.horario_actual_edicion = None
         self.cbo_paciente.set("")
         self.cbo_medico.set("")
-        self.txt_fecha.delete(0, tk.END)
+        self.cbo_fecha.set("")
         self.cbo_horario.set("")
         self.txt_motivo.delete(0, tk.END)
-        self.cbo_estado.set("")
-        self.cbo_pago.set("")
+        self.horarios_cache = []
 
     # -------------------------------------------------------
     def seleccionar_fila(self, event):
+        if not self.tree.selection():
+            return
+
         item = self.tree.selection()[0]
         valores = self.tree.item(item, "values")
         self.id_cita_seleccionada = valores[0]
+
+        meta = self.metadatos_citas.get(self.id_cita_seleccionada, {})
+        self.horario_actual_edicion = meta.get("id_horario")
+
+        self._seleccionar_combo_por_id(self.cbo_paciente, meta.get("id_paciente"))
+        self._seleccionar_combo_por_id(self.cbo_medico, meta.get("id_medico"))
+
+        self.cbo_fecha.set(valores[4])
+        self.cargar_fechas_para_medico()
+        self.actualizar_horarios(horario_actual=self.horario_actual_edicion)
+        self.cbo_horario.set(valores[5])
+
+        self.txt_motivo.delete(0, tk.END)
+        self.txt_motivo.insert(0, valores[6])
 
     # -------------------------------------------------------
     def guardar(self):
         from tkinter import messagebox
 
-        fecha = self.txt_fecha.get().strip()
+        fecha = self.cbo_fecha.get().strip()
         if not es_fecha_valida(fecha):
             messagebox.showwarning("Fecha inválida", "Ingrese una fecha válida en formato YYYY-MM-DD.")
             return
@@ -166,19 +265,22 @@ class CitasForm(tk.Frame):
             return
 
         try:
-            id_paciente = int(self.cbo_paciente.get().split(" - ")[0])
-            id_horario = int(self.cbo_horario.get().split(" - ")[0])
+            id_paciente = self._extraer_id_desde_combo(self.cbo_paciente.get())
+            id_horario = self._extraer_id_desde_combo(self.cbo_horario.get())
+            id_medico = self._extraer_id_desde_combo(self.cbo_medico.get())
         except Exception:
-            messagebox.showerror("Error", "Paciente u horario no válidos.")
+            messagebox.showerror("Error", "Paciente, médico u horario no válidos.")
+            return
+
+        if id_paciente is None or id_medico is None or id_horario is None:
+            messagebox.showerror("Error", "Seleccione opciones válidas para la cita.")
             return
 
         data = {
             "id_paciente": id_paciente,
+            "id_medico": id_medico,
             "id_horario": id_horario,
-            "estado_cita": self.cbo_estado.get() or "PENDIENTE",
-            "estado_pago": self.cbo_pago.get() or "PENDIENTE",
             "motivo": self.txt_motivo.get(),
-            "observaciones": "",
         }
 
         try:
@@ -210,3 +312,27 @@ class CitasForm(tk.Frame):
             self.limpiar_formulario()
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo eliminar la cita:\n{e}")
+
+    # -------------------------------------------------------
+    def _seleccionar_combo_por_id(self, combo, id_buscar):
+        if id_buscar is None:
+            return
+        for opcion in combo["values"]:
+            try:
+                if int(opcion.split(" - ")[0]) == int(id_buscar):
+                    combo.set(opcion)
+                    return
+            except ValueError:
+                continue
+
+    def _extraer_id_desde_combo(self, texto):
+        if texto == "":
+            return None
+        try:
+            return int(texto.split(" - ")[0])
+        except (ValueError, IndexError):
+            return None
+
+    def _formatear_horario(self, horario_tuple):
+        horario_id, fecha, inicio, fin = horario_tuple[:4]
+        return f"{horario_id} - {fecha} | {inicio} a {fin}"

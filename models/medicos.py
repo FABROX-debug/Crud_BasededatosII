@@ -4,7 +4,7 @@ from db_oracle import fetch_all, execute_query
 # LISTAR
 def listar_medicos():
     return fetch_all("""
-        SELECT ID_MEDICO, DNI, NOMBRE, ESPECIALIDAD, ESTADO
+        SELECT ID_MEDICO, NOMBRE, DNI, ESPECIALIDAD, ESTADO
         FROM MEDICOS
         ORDER BY NOMBRE
     """)

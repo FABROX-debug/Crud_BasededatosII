@@ -24,14 +24,18 @@ class MedicosForm(tk.Frame):
 
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "Nombre"),
+            columns=("ID", "Nombre", "DNI", "Especialidad"),
             show="headings",
             height=15
         )
         self.tree.heading(0, text="ID Médico")
         self.tree.heading(1, text="Nombre completo")
-        self.tree.column(0, width=100)
-        self.tree.column(1, width=350)
+        self.tree.heading(2, text="DNI")
+        self.tree.heading(3, text="Especialidad")
+        self.tree.column(0, width=90)
+        self.tree.column(1, width=210)
+        self.tree.column(2, width=120)
+        self.tree.column(3, width=160)
 
         self.tree.pack(pady=10, fill="both", expand=True)
 
@@ -41,7 +45,7 @@ class MedicosForm(tk.Frame):
 
         medicos = listar_medicos()
         for m in medicos:
-            self.tree.insert("", tk.END, values=m)
+            self.tree.insert("", tk.END, values=(m[0], m[1], m[2], m[3]))
 
 
 # Para probar aislado
