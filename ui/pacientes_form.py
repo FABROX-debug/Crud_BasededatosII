@@ -24,14 +24,16 @@ class PacientesForm(tk.Frame):
 
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "Nombre"),
+            columns=("ID", "Nombre", "DNI"),
             show="headings",
             height=15
         )
         self.tree.heading(0, text="ID Paciente")
         self.tree.heading(1, text="Nombre completo")
+        self.tree.heading(2, text="DNI")
         self.tree.column(0, width=100)
-        self.tree.column(1, width=350)
+        self.tree.column(1, width=330)
+        self.tree.column(2, width=120)
 
         self.tree.pack(pady=10, fill="both", expand=True)
 

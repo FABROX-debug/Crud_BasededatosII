@@ -23,6 +23,7 @@ class CitasForm(tk.Frame):
         self.master.geometry("1050x650")
 
         self.id_cita_seleccionada = None
+        self.horarios_cache = []
 
         self.crear_widgets()
         self.cargar_tabla()
@@ -48,26 +49,18 @@ class CitasForm(tk.Frame):
         self.cbo_medico.grid(row=1, column=1)
         self.cbo_medico.bind("<<ComboboxSelected>>", self.actualizar_horarios)
 
-        tk.Label(contenedor, text="Fecha: (YYYY-MM-DD)").grid(row=2, column=0, sticky="e", padx=5, pady=5)
-        self.txt_fecha = tk.Entry(contenedor, width=20)
+        tk.Label(contenedor, text="Fecha disponible:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        self.txt_fecha = tk.Entry(contenedor, width=20, state="readonly")
         self.txt_fecha.grid(row=2, column=1, sticky="w")
 
         tk.Label(contenedor, text="Horario:").grid(row=3, column=0, sticky="e", padx=5, pady=5)
         self.cbo_horario = ttk.Combobox(contenedor, width=40)
         self.cbo_horario.grid(row=3, column=1)
+        self.cbo_horario.bind("<<ComboboxSelected>>", self.establecer_fecha_desde_horario)
 
-        tk.Label(contenedor, text="Motivo:").grid(row=4, column=0, sticky="e", padx=5, pady=5)
-        self.txt_motivo = tk.Entry(contenedor, width=40)
-        self.txt_motivo.grid(row=4, column=1)
-
-        tk.Label(contenedor, text="Estado Cita:").grid(row=5, column=0, sticky="e", padx=5, pady=5)
-        self.cbo_estado = ttk.Combobox(contenedor, values=["PENDIENTE", "CONFIRMADA", "CANCELADA"], width=20)
-        self.cbo_estado.grid(row=5, column=1, sticky="w")
-
-        tk.Label(contenedor, text="Estado Pago:").grid(row=6, column=0, sticky="e", padx=5, pady=5)
-        self.cbo_pago = ttk.Combobox(contenedor, values=["PENDIENTE", "PAGADO"], width=20)
-        self.cbo_pago.grid(row=6, column=1, sticky="w")
-
+        tk.Label(contenedor, text="Motivo/Observaciones:").grid(row=4, column=0, sticky="e", padx=5, pady=5)
+        self.txt_motivo = tk.Entry(contenedor, width=60)
+        self.txt_motivo.grid(row=4, column=1, sticky="w", pady=5)
         # -----------------------------
         # BOTONES
         # -----------------------------
@@ -83,14 +76,15 @@ class CitasForm(tk.Frame):
         # -----------------------------
         self.tree = ttk.Treeview(
             self.master,
-            columns=("ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado", "Pago"),
+            columns=("ID", "Paciente", "Médico", "Especialidad", "Fecha", "Horario", "Motivo"),
             show="headings",
             height=15
         )
-        headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Hora", "Estado Cita", "Estado Pago"]
+        headers = ["ID", "Paciente", "Médico", "Especialidad", "Fecha", "Horario", "Motivo"]
+        widths = [60, 180, 180, 150, 100, 160, 200]
         for i, col in enumerate(headers):
             self.tree.heading(i, text=col)
-            self.tree.column(i, width=130)
+            self.tree.column(i, width=widths[i])
 
         self.tree.pack(pady=10, fill="x")
         self.tree.bind("<<TreeviewSelect>>", self.seleccionar_fila)
@@ -110,12 +104,12 @@ class CitasForm(tk.Frame):
     # -------------------------------------------------------
     def cargar_pacientes(self):
         pacientes = listar_pacientes()
-        self.cbo_paciente["values"] = [f"{p[0]} - {p[1]}" for p in pacientes]
+        self.cbo_paciente["values"] = [f"{p[0]} - {p[1]} (DNI: {p[2]})" for p in pacientes]
 
     # -------------------------------------------------------
     def cargar_medicos(self):
         medicos = listar_medicos()
-        self.cbo_medico["values"] = [f"{m[0]} - {m[1]}" for m in medicos]
+        self.cbo_medico["values"] = [f"{m[0]} - {m[1]} ({m[3]})" for m in medicos]
 
     # -------------------------------------------------------
     def actualizar_horarios(self, event=None):
@@ -123,34 +117,80 @@ class CitasForm(tk.Frame):
         if medico_txt == "":
             return
 
+        id_medico = int(medico_txt.split(" - ")[0])
+
+        # Si hay una fecha ingresada úsala, de lo contrario trae todas las futuras
         fecha = self.txt_fecha.get().strip()
+        if not fecha:
+            from datetime import date
+            fecha = date.today().strftime("%Y-%m-%d")
+
         if not es_fecha_valida(fecha):
             from tkinter import messagebox
             messagebox.showwarning("Fecha inválida", "Ingrese una fecha válida en formato YYYY-MM-DD.")
             return
 
-        id_medico = int(medico_txt.split(" - ")[0])
-
-        horarios = listar_horarios_disponibles(id_medico, fecha)
-        self.cbo_horario["values"] = [f"{h[0]} - {h[1]} a {h[2]}" for h in horarios]
+        self.horarios_cache = listar_horarios_disponibles(id_medico, fecha)
+        opciones = [f"{h[0]} - {h[1]} | {h[2]} a {h[3]}" for h in self.horarios_cache]
+        self.cbo_horario["values"] = opciones
         self.cbo_horario.set("")
+        if opciones:
+            self.cbo_horario.current(0)
+            self.establecer_fecha_desde_horario()
+        else:
+            messagebox.showinfo(
+                "Sin horarios",
+                "El médico seleccionado no tiene horarios disponibles para la fecha indicada."
+            )
+
+    # -------------------------------------------------------
+    def establecer_fecha_desde_horario(self, event=None):
+        if not self.cbo_horario.get() or not self.horarios_cache:
+            return
+
+        try:
+            horario_id = int(self.cbo_horario.get().split(" - ")[0])
+        except ValueError:
+            return
+
+        for h in self.horarios_cache:
+            if h[0] == horario_id:
+                self.txt_fecha.config(state="normal")
+                self.txt_fecha.delete(0, tk.END)
+                self.txt_fecha.insert(0, h[1])
+                self.txt_fecha.config(state="readonly")
+                break
 
     # -------------------------------------------------------
     def limpiar_formulario(self):
         self.id_cita_seleccionada = None
         self.cbo_paciente.set("")
         self.cbo_medico.set("")
+        self.txt_fecha.config(state="normal")
         self.txt_fecha.delete(0, tk.END)
+        self.txt_fecha.config(state="readonly")
         self.cbo_horario.set("")
         self.txt_motivo.delete(0, tk.END)
-        self.cbo_estado.set("")
-        self.cbo_pago.set("")
+        self.horarios_cache = []
 
     # -------------------------------------------------------
     def seleccionar_fila(self, event):
         item = self.tree.selection()[0]
         valores = self.tree.item(item, "values")
         self.id_cita_seleccionada = valores[0]
+        paciente_nombre, medico_nombre = valores[1], valores[2]
+
+        self._seleccionar_combo_por_nombre(self.cbo_paciente, paciente_nombre)
+        self._seleccionar_combo_por_nombre(self.cbo_medico, medico_nombre)
+
+        self.txt_fecha.config(state="normal")
+        self.txt_fecha.delete(0, tk.END)
+        self.txt_fecha.insert(0, valores[4])
+        self.txt_fecha.config(state="readonly")
+
+        self.cbo_horario.set(valores[5])
+        self.txt_motivo.delete(0, tk.END)
+        self.txt_motivo.insert(0, valores[6])
 
     # -------------------------------------------------------
     def guardar(self):
@@ -168,17 +208,16 @@ class CitasForm(tk.Frame):
         try:
             id_paciente = int(self.cbo_paciente.get().split(" - ")[0])
             id_horario = int(self.cbo_horario.get().split(" - ")[0])
+            id_medico = int(self.cbo_medico.get().split(" - ")[0])
         except Exception:
-            messagebox.showerror("Error", "Paciente u horario no válidos.")
+            messagebox.showerror("Error", "Paciente, médico u horario no válidos.")
             return
 
         data = {
             "id_paciente": id_paciente,
+            "id_medico": id_medico,
             "id_horario": id_horario,
-            "estado_cita": self.cbo_estado.get() or "PENDIENTE",
-            "estado_pago": self.cbo_pago.get() or "PENDIENTE",
             "motivo": self.txt_motivo.get(),
-            "observaciones": "",
         }
 
         try:
@@ -210,3 +249,10 @@ class CitasForm(tk.Frame):
             self.limpiar_formulario()
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo eliminar la cita:\n{e}")
+
+    # -------------------------------------------------------
+    def _seleccionar_combo_por_nombre(self, combo, nombre_objetivo):
+        for opcion in combo["values"]:
+            if nombre_objetivo in opcion:
+                combo.set(opcion)
+                return

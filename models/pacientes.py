@@ -2,7 +2,7 @@ from db_oracle import fetch_all, execute_query
 
 def listar_pacientes():
     return fetch_all("""
-        SELECT ID_PACIENTE, DNI, NOMBRE
+        SELECT ID_PACIENTE, NOMBRE, DNI
         FROM PACIENTES
         ORDER BY NOMBRE
     """)
