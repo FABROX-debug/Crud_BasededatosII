@@ -1,19 +1,21 @@
 # models/citas.py
 from db_oracle import fetch_all, execute_query
 
+
 # ------------------------------------------------------------
-# LISTAR CITAS COMPLETAS
+# LISTAR CITAS CON FORMATO PARA TABLA
 # ------------------------------------------------------------
 def listar_citas():
     query = """
-        SELECT  C.ID_CITA,
-                P.NOMBRE AS PACIENTE,
-                M.NOMBRE AS MEDICO,
-                M.ESPECIALIDAD,
-                TO_CHAR(H.FECHA, 'YYYY-MM-DD') AS FECHA,
-                H.HORA_INICIO || ' - ' || H.HORA_FIN AS HORARIO,
-                C.MOTIVO,
-                TO_CHAR(C.FECHA_REG, 'YYYY-MM-DD HH24:MI')
+        SELECT  
+            C.ID_CITA,
+            P.NOMBRE AS PACIENTE,
+            M.NOMBRE AS MEDICO,
+            M.ESPECIALIDAD,
+            TO_CHAR(H.FECHA, 'YYYY-MM-DD') AS FECHA,
+            H.HORA_INICIO || ' - ' || H.HORA_FIN AS HORARIO,
+            NVL(C.MOTIVO, '-') AS MOTIVO,
+            TO_CHAR(C.FECHA_REG, 'YYYY-MM-DD HH24:MI') AS FECHA_REG
         FROM CITAS C
         JOIN PACIENTES P ON P.ID_PACIENTE = C.ID_PACIENTE
         JOIN MEDICOS M   ON M.ID_MEDICO = C.ID_MEDICO
@@ -30,7 +32,8 @@ def crear_cita(data):
     query = """
         INSERT INTO CITAS (
             ID_CITA, ID_PACIENTE, ID_MEDICO, ID_HORARIO, MOTIVO, FECHA_REG
-        ) VALUES (
+        )
+        VALUES (
             SEQ_CITAS.NEXTVAL,
             :id_paciente,
             :id_medico,
@@ -49,11 +52,12 @@ def actualizar_cita(id_cita, data):
     data["id_cita"] = id_cita
     query = """
         UPDATE CITAS
-        SET ID_PACIENTE = :id_paciente,
-            ID_MEDICO = :id_medico,
-            ID_HORARIO = :id_horario,
-            MOTIVO = :motivo
-        WHERE ID_CITA = :id_cita
+        SET 
+            ID_PACIENTE = :id_paciente,
+            ID_MEDICO   = :id_medico,
+            ID_HORARIO  = :id_horario,
+            MOTIVO      = :motivo
+        WHERE ID_CITA   = :id_cita
     """
     execute_query(query, data, commit=True)
 
@@ -70,21 +74,24 @@ def eliminar_cita(id_cita):
 
 
 # ------------------------------------------------------------
-# CONSULTA PARA HORARIOS DISPONIBLES SEGÚN MEDICO + FECHA
+# HORARIOS DISPONIBLES
 # ------------------------------------------------------------
 def horarios_disponibles(id_medico, fecha):
-    return fetch_all("""
-        SELECT ID_HORARIO,
-               HORA_INICIO || ' - ' || HORA_FIN AS HORARIO
+    query = """
+        SELECT 
+            ID_HORARIO,
+            HORA_INICIO,
+            HORA_FIN
         FROM HORARIOS
         WHERE ID_MEDICO = :id_medico
           AND FECHA = TO_DATE(:fecha, 'YYYY-MM-DD')
           AND DISPONIBLE = 'S'
           AND ID_HORARIO NOT IN (
                 SELECT ID_HORARIO FROM CITAS
-           )
+          )
         ORDER BY HORA_INICIO
-    """, {
+    """
+    return fetch_all(query, {
         "id_medico": id_medico,
         "fecha": fecha
     })

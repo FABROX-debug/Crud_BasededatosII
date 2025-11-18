@@ -1,11 +1,24 @@
 # models/horarios.py
 from db_oracle import fetch_all, execute_query
 
-# -----------------------------
-# LISTAR HORARIOS DISPONIBLES
-# -----------------------------
-def listar_horarios_disponibles(id_medico, fecha_str):
-    query = """
+
+# ---------------------------------------------------------
+# LISTAR FECHAS DISPONIBLES SEGÚN EL MÉDICO
+# ---------------------------------------------------------
+def listar_fechas_por_medico(id_medico):
+    return fetch_all("""
+        SELECT DISTINCT TO_CHAR(FECHA, 'YYYY-MM-DD')
+        FROM HORARIOS
+        WHERE ID_MEDICO = :id_medico
+        ORDER BY 1
+    """, {"id_medico": id_medico})
+
+
+# ---------------------------------------------------------
+# LISTAR HORARIOS DISPONIBLES SEGÚN MÉDICO + FECHA
+# ---------------------------------------------------------
+def listar_horarios_por_medico_y_fecha(id_medico, fecha):
+    return fetch_all("""
         SELECT ID_HORARIO,
                HORA_INICIO,
                HORA_FIN
@@ -14,18 +27,17 @@ def listar_horarios_disponibles(id_medico, fecha_str):
           AND FECHA = TO_DATE(:fecha, 'YYYY-MM-DD')
           AND DISPONIBLE = 'S'
         ORDER BY HORA_INICIO
-    """
-    return fetch_all(query, {
+    """, {
         "id_medico": id_medico,
-        "fecha": fecha_str
+        "fecha": fecha
     })
 
 
-# -----------------------------
+# ---------------------------------------------------------
 # LISTAR TODOS LOS HORARIOS (CRUD)
-# -----------------------------
+# ---------------------------------------------------------
 def listar_horarios():
-    query = """
+    return fetch_all("""
         SELECT H.ID_HORARIO,
                M.NOMBRE AS MEDICO,
                TO_CHAR(H.FECHA, 'YYYY-MM-DD'),
@@ -35,13 +47,12 @@ def listar_horarios():
         FROM HORARIOS H
         JOIN MEDICOS M ON M.ID_MEDICO = H.ID_MEDICO
         ORDER BY H.FECHA, H.HORA_INICIO
-    """
-    return fetch_all(query)
+    """)
 
 
-# -----------------------------
+# ---------------------------------------------------------
 # CREAR HORARIO
-# -----------------------------
+# ---------------------------------------------------------
 def crear_horario(data):
     query = """
         INSERT INTO HORARIOS (
@@ -64,9 +75,9 @@ def crear_horario(data):
     execute_query(query, data, commit=True)
 
 
-# -----------------------------
+# ---------------------------------------------------------
 # ACTUALIZAR HORARIO
-# -----------------------------
+# ---------------------------------------------------------
 def actualizar_horario(id_horario, data):
     data["id"] = id_horario
     query = """
@@ -81,9 +92,9 @@ def actualizar_horario(id_horario, data):
     execute_query(query, data, commit=True)
 
 
-# -----------------------------
+# ---------------------------------------------------------
 # ELIMINAR HORARIO
-# -----------------------------
+# ---------------------------------------------------------
 def eliminar_horario(id_horario):
     execute_query(
         "DELETE FROM HORARIOS WHERE ID_HORARIO = :id",
