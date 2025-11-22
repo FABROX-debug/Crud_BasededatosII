@@ -101,12 +101,7 @@ def crear_cita(data):
     """
     execute_query(query, data, commit=True)
 
-    # Marcar horario como NO disponible
-    execute_query(
-        "UPDATE HORARIOS SET DISPONIBLE = 'N' WHERE ID_HORARIO = :id",
-        {"id": data["id_horario"]},
-        commit=True
-    )
+    # NOTA: El trigger TRG_ACTUALIZAR_HORARIO_CITA se encarga de poner DISPONIBLE='N'
 
 
 def actualizar_cita(id_cita, data):

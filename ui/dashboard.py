@@ -48,6 +48,10 @@ class Dashboard(tk.Frame):
             style="Subtitle.TLabel"
         ).pack(anchor="w")
 
+        # Botón de Reportes (Alineado a la derecha del header)
+        btn_reportes = ttk.Button(header_frame, text="Ver Reportes", command=self.abrir_reportes)
+        btn_reportes.place(relx=1.0, rely=0.5, anchor="e")
+
         # CONTENEDOR PRINCIPAL
         cont = tk.Frame(self.master, bg=BACKGROUND_COLOR)
         cont.pack(fill="both", expand=True, padx=20, pady=10)
@@ -179,6 +183,12 @@ class Dashboard(tk.Frame):
 
         for c in citas_ordenadas:
             self.tree.insert("", tk.END, values=c)
+
+    # -------------------------------------------------------
+    def abrir_reportes(self):
+        from ui.reportes_form import ReportesForm
+        win = ReportesForm(self.master)
+        win.grab_set()
 
 
 # PRUEBA AISLADA
