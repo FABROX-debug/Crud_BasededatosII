@@ -1,0 +1,194 @@
+-- mejoras_bd.sql
+-- Mejoras para la base de datos del sistema de citas médicas
+
+-- =====================================================
+-- 1. ÍNDICES PARA MEJORAR RENDIMIENTO
+-- =====================================================
+
+-- Índice para búsquedas por DNI en USUARIOS
+CREATE INDEX IDX_USUARIOS_DNI ON USUARIOS(DNI);
+
+-- Índice para búsquedas por DNI en PACIENTES
+CREATE INDEX IDX_PACIENTES_DNI ON PACIENTES(DNI);
+
+-- Índice para búsquedas por DNI en MEDICOS
+CREATE INDEX IDX_MEDICOS_DNI ON MEDICOS(DNI);
+
+-- Índice compuesto para búsquedas de horarios disponibles
+CREATE INDEX IDX_HORARIOS_BUSQUEDA ON HORARIOS(ID_MEDICO, FECHA, DISPONIBLE);
+
+-- Índice para citas por paciente
+CREATE INDEX IDX_CITAS_PACIENTE ON CITAS(ID_PACIENTE);
+
+-- Índice para citas por médico
+CREATE INDEX IDX_CITAS_MEDICO ON CITAS(ID_MEDICO);
+
+-- Índice para citas por fecha
+CREATE INDEX IDX_CITAS_FECHA ON CITAS(FECHA_REG);
+
+-- =====================================================
+-- 2. TRIGGER PARA AUDITORÍA AUTOMÁTICA
+-- =====================================================
+
+-- Trigger para CITAS
+CREATE OR REPLACE TRIGGER TRG_AUDIT_CITAS
+AFTER INSERT OR UPDATE OR DELETE ON CITAS
+FOR EACH ROW
+DECLARE
+    v_operacion VARCHAR2(10);
+BEGIN
+    IF INSERTING THEN
+        v_operacion := 'INSERT';
+    ELSIF UPDATING THEN
+        v_operacion := 'UPDATE';
+    ELSIF DELETING THEN
+        v_operacion := 'DELETE';
+    END IF;
+
+    INSERT INTO AUDITORIA (TABLA, OPERACION, USUARIOBD)
+    VALUES ('CITAS', v_operacion, USER);
+END;
+/
+
+-- Trigger para HORARIOS
+CREATE OR REPLACE TRIGGER TRG_AUDIT_HORARIOS
+AFTER INSERT OR UPDATE OR DELETE ON HORARIOS
+FOR EACH ROW
+DECLARE
+    v_operacion VARCHAR2(10);
+BEGIN
+    IF INSERTING THEN
+        v_operacion := 'INSERT';
+    ELSIF UPDATING THEN
+        v_operacion := 'UPDATE';
+    ELSIF DELETING THEN
+        v_operacion := 'DELETE';
+    END IF;
+
+    INSERT INTO AUDITORIA (TABLA, OPERACION, USUARIOBD)
+    VALUES ('HORARIOS', v_operacion, USER);
+END;
+/
+
+-- =====================================================
+-- 3. CONSTRAINT ADICIONAL: NO PERMITIR HORARIOS DUPLICADOS
+-- =====================================================
+
+CREATE UNIQUE INDEX IDX_HORARIOS_UNICO
+ON HORARIOS(ID_MEDICO, FECHA, HORA_INICIO, HORA_FIN);
+
+-- =====================================================
+-- 4. VISTA PARA CONSULTAS RÁPIDAS
+-- =====================================================
+
+-- Vista de citas con toda la información
+CREATE OR REPLACE VIEW V_CITAS_COMPLETAS AS
+SELECT
+    C.ID_CITA,
+    C.ID_PACIENTE,
+    P.DNI AS PACIENTE_DNI,
+    P.NOMBRE AS PACIENTE_NOMBRE,
+    P.TELEFONO AS PACIENTE_TELEFONO,
+    C.ID_MEDICO,
+    M.DNI AS MEDICO_DNI,
+    M.NOMBRE AS MEDICO_NOMBRE,
+    M.ESPECIALIDAD,
+    C.ID_HORARIO,
+    H.FECHA,
+    H.HORA_INICIO,
+    H.HORA_FIN,
+    C.MOTIVO,
+    C.FECHA_REG,
+    H.DISPONIBLE
+FROM CITAS C
+JOIN PACIENTES P ON P.ID_PACIENTE = C.ID_PACIENTE
+JOIN MEDICOS M ON M.ID_MEDICO = C.ID_MEDICO
+JOIN HORARIOS H ON H.ID_HORARIO = C.ID_HORARIO;
+
+-- Vista de horarios disponibles
+CREATE OR REPLACE VIEW V_HORARIOS_DISPONIBLES AS
+SELECT
+    H.ID_HORARIO,
+    H.ID_MEDICO,
+    M.NOMBRE AS MEDICO_NOMBRE,
+    M.ESPECIALIDAD,
+    H.FECHA,
+    H.HORA_INICIO,
+    H.HORA_FIN,
+    H.DISPONIBLE
+FROM HORARIOS H
+JOIN MEDICOS M ON M.ID_MEDICO = H.ID_MEDICO
+WHERE H.DISPONIBLE = 'S'
+  AND H.FECHA >= TRUNC(SYSDATE);
+
+-- =====================================================
+-- 5. DATOS DE PRUEBA (OPCIONAL)
+-- =====================================================
+
+-- Insertar usuarios de prueba
+INSERT INTO USUARIOS (DNI, NOMBRE, TIPO, PASSWORD, ESTADO)
+VALUES ('12345678', 'Admin Sistema', 'ADMIN', '12345678', 'S');
+
+INSERT INTO USUARIOS (DNI, NOMBRE, TIPO, PASSWORD, ESTADO)
+VALUES ('55667788', 'Dra. María Torres', 'MEDICO', '55667788', 'S');
+
+-- Insertar pacientes de prueba
+INSERT INTO PACIENTES (DNI, NOMBRE, CORREO, TELEFONO)
+VALUES ('87654321', 'Juan Pérez García', 'juan.perez@email.com', '987654321');
+
+INSERT INTO PACIENTES (DNI, NOMBRE, CORREO, TELEFONO)
+VALUES ('11223344', 'María López Ruiz', 'maria.lopez@email.com', '912345678');
+
+-- Insertar médicos de prueba (si no existen)
+INSERT INTO MEDICOS (DNI, NOMBRE, ESPECIALIDAD, ESTADO)
+SELECT '11223344', 'Dr. Juan Pérez', 'Medicina General', 'N'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM MEDICOS WHERE DNI = '11223344');
+
+INSERT INTO MEDICOS (DNI, NOMBRE, ESPECIALIDAD, ESTADO)
+SELECT '99887766', 'Dr. Luis Andrade', 'Cardiología', 'S'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM MEDICOS WHERE DNI = '99887766');
+
+INSERT INTO MEDICOS (DNI, NOMBRE, ESPECIALIDAD, ESTADO)
+SELECT '55667788', 'Dra. María Torres', 'Pediatría', 'S'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM MEDICOS WHERE DNI = '55667788');
+
+-- Insertar horarios de prueba para la Dra. María Torres (ID=2)
+-- Primero obtenemos el ID del médico
+DECLARE
+    v_id_medico NUMBER;
+BEGIN
+    SELECT ID_MEDICO INTO v_id_medico
+    FROM MEDICOS
+    WHERE DNI = '55667788';
+
+    -- Horarios para hoy y próximos días
+    INSERT INTO HORARIOS (ID_MEDICO, FECHA, HORA_INICIO, HORA_FIN, DISPONIBLE)
+    VALUES (v_id_medico, TRUNC(SYSDATE), '09:00', '10:00', 'S');
+
+    INSERT INTO HORARIOS (ID_MEDICO, FECHA, HORA_INICIO, HORA_FIN, DISPONIBLE)
+    VALUES (v_id_medico, TRUNC(SYSDATE), '10:00', '11:00', 'S');
+
+    INSERT INTO HORARIOS (ID_MEDICO, FECHA, HORA_INICIO, HORA_FIN, DISPONIBLE)
+    VALUES (v_id_medico, TRUNC(SYSDATE) + 1, '09:00', '10:00', 'S');
+
+    INSERT INTO HORARIOS (ID_MEDICO, FECHA, HORA_INICIO, HORA_FIN, DISPONIBLE)
+    VALUES (v_id_medico, TRUNC(SYSDATE) + 1, '10:00', '11:00', 'S');
+
+    INSERT INTO HORARIOS (ID_MEDICO, FECHA, HORA_INICIO, HORA_FIN, DISPONIBLE)
+    VALUES (v_id_medico, TRUNC(SYSDATE) + 2, '14:00', '15:00', 'S');
+
+    COMMIT;
+
+    DBMS_OUTPUT.PUT_LINE('Horarios insertados correctamente');
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Médico no encontrado');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+END;
+/
+
+COMMIT;

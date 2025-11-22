@@ -1,10 +1,10 @@
-
-# models/pacientes.py - VERSIÓN CORREGIDA
+# =====================================================
+# models/pacientes.py - CORREGIDO PARA IDENTITY
+# =====================================================
 from db_oracle import fetch_all, execute_query
 
 
 def listar_pacientes():
-    """Lista todos los pacientes con TODOS los campos necesarios"""
     return fetch_all("""
         SELECT 
             ID_PACIENTE,
@@ -19,16 +19,8 @@ def listar_pacientes():
 
 def crear_paciente(data):
     query = """
-        INSERT INTO PACIENTES (
-            ID_PACIENTE, DNI, NOMBRE, CORREO, TELEFONO, FECHA_REG
-        ) VALUES (
-            SEQ_PACIENTES.NEXTVAL,
-            :dni,
-            :nombre,
-            :correo,
-            :telefono,
-            SYSDATE
-        )
+        INSERT INTO PACIENTES (DNI, NOMBRE, CORREO, TELEFONO)
+        VALUES (:dni, :nombre, :correo, :telefono)
     """
     execute_query(query, data, commit=True)
 

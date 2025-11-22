@@ -1,18 +1,20 @@
-# ui/medicos_form.py - VERSIÓN CORREGIDA
+# ui/medicos_form.py - VERSIÓN MEJORADA
 import tkinter as tk
 from tkinter import ttk, messagebox
 
 from models.medicos import listar_medicos, crear_medico, actualizar_medico, eliminar_medico
-from models.horarios import listar_horarios
-
+from models.horarios import listar_horarios_por_medico
+from utils.styles import BACKGROUND_COLOR
 
 class MedicosForm(tk.Frame):
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
+        self.configure(bg=BACKGROUND_COLOR)
+        self.master.configure(bg=BACKGROUND_COLOR)
 
         self.master.title("Gestión de Médicos")
-        self.master.geometry("950x650")
+        self.master.geometry("1100x700")
 
         self.id_medico = None
 
@@ -20,89 +22,168 @@ class MedicosForm(tk.Frame):
         self.cargar_tabla_medicos()
 
     def crear_widgets(self):
-        # Título
-        tk.Label(
-            self.master,
+        # Header
+        header_frame = tk.Frame(self.master, bg=BACKGROUND_COLOR)
+        header_frame.pack(fill="x", padx=20, pady=20)
+
+        ttk.Label(
+            header_frame,
             text="Gestión de Médicos",
-            font=("Segoe UI", 20, "bold")
-        ).pack(pady=10)
+            style="Title.TLabel"
+        ).pack(side="left")
+
+        # BUSCADOR
+        search_frame = tk.Frame(header_frame, bg=BACKGROUND_COLOR)
+        search_frame.pack(side="right")
+
+        ttk.Label(search_frame, text="Buscar:", style="TLabel").pack(side="left", padx=5)
+        
+        self.txt_buscar = ttk.Entry(search_frame, width=30)
+        self.txt_buscar.pack(side="left", padx=5)
+        self.txt_buscar.bind("<KeyRelease>", self.filtrar_tabla)
+
+        # CONTENEDOR PRINCIPAL
+        main_frame = tk.Frame(self.master, bg=BACKGROUND_COLOR)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+
+        # IZQUIERDA: FORMULARIO Y TABLA MÉDICOS
+        left_panel = tk.Frame(main_frame, bg=BACKGROUND_COLOR)
+        left_panel.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         # FORMULARIO
-        form = tk.Frame(self.master)
-        form.pack(pady=10)
+        form_frame = ttk.Frame(left_panel, style="Card.TFrame", padding=20)
+        form_frame.pack(fill="x", pady=(0, 20))
 
-        tk.Label(form, text="DNI:").grid(row=0, column=0, pady=5, sticky="e", padx=5)
-        tk.Label(form, text="Nombre:").grid(row=1, column=0, pady=5, sticky="e", padx=5)
-        tk.Label(form, text="Especialidad:").grid(row=2, column=0, pady=5, sticky="e", padx=5)
-        tk.Label(form, text="Estado:").grid(row=3, column=0, pady=5, sticky="e", padx=5)
+        ttk.Label(form_frame, text="Datos del Médico", font=("Segoe UI", 12, "bold"), background="white").pack(anchor="w", pady=(0, 15))
 
-        self.txt_dni = tk.Entry(form, width=25)
-        self.txt_nombre = tk.Entry(form, width=40)
-        self.txt_especialidad = tk.Entry(form, width=40)
-        self.cbo_estado = ttk.Combobox(form, values=["S", "N"], width=5, state="readonly")
+        # Grid layout para formulario
+        grid_frame = tk.Frame(form_frame, bg="white")
+        grid_frame.pack(fill="x")
 
-        self.txt_dni.grid(row=0, column=1, padx=5)
-        self.txt_nombre.grid(row=1, column=1, padx=5)
-        self.txt_especialidad.grid(row=2, column=1, padx=5)
-        self.cbo_estado.grid(row=3, column=1, padx=5)
+        self.crear_campo_grid(grid_frame, "DNI", "txt_dni", 0, 0)
+        self.crear_campo_grid(grid_frame, "Nombre", "txt_nombre", 0, 1)
+        self.crear_campo_grid(grid_frame, "Especialidad", "txt_especialidad", 1, 0)
+        
+        # Estado (Combobox) - con contenedor
+        estado_frame = tk.Frame(grid_frame, bg="white")
+        estado_frame.grid(row=1, column=1, padx=10, pady=5, sticky="nw")
+        
+        ttk.Label(estado_frame, text="Estado", background="white", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 5))
+        self.cbo_estado = ttk.Combobox(estado_frame, values=["S", "N"], state="readonly", width=26)
+        self.cbo_estado.pack(anchor="w", fill="x")
 
-        # BOTONES
-        btns = tk.Frame(self.master)
-        btns.pack(pady=10)
+        # Botones
+        btn_frame = tk.Frame(form_frame, bg="white")
+        btn_frame.pack(pady=10, fill="x")
 
-        tk.Button(btns, text="Nuevo", width=12, command=self.limpiar_form).grid(row=0, column=0, padx=5)
-        tk.Button(btns, text="Guardar", width=12, command=self.guardar).grid(row=0, column=1, padx=5)
-        tk.Button(btns, text="Eliminar", width=12, command=self.eliminar).grid(row=0, column=2, padx=5)
+        ttk.Button(btn_frame, text="Guardar", command=self.guardar, style="TButton").pack(side="left", fill="x", expand=True, padx=2)
+        ttk.Button(btn_frame, text="Nuevo", command=self.limpiar_form, style="Accent.TButton").pack(side="left", fill="x", expand=True, padx=2)
+        ttk.Button(btn_frame, text="Eliminar", command=self.eliminar, style="Danger.TButton").pack(side="left", fill="x", expand=True, padx=2)
 
         # TABLA MÉDICOS
-        tk.Label(self.master, text="Lista de Médicos", font=("Segoe UI", 14, "bold")).pack(pady=5)
+        table_frame = ttk.Frame(left_panel, style="Card.TFrame", padding=20)
+        table_frame.pack(fill="both", expand=True)
 
         self.tree_medicos = ttk.Treeview(
-            self.master,
+            table_frame,
             columns=("ID", "DNI", "Nombre", "Especialidad", "Estado"),
             show="headings",
-            height=8
+            height=8,
+            style="Treeview"
         )
 
         headers = ["ID", "DNI", "Nombre", "Especialidad", "Estado"]
-        widths = [60, 100, 200, 150, 80]
+        widths = [50, 100, 180, 150, 60]
 
         for i, col in enumerate(headers):
             self.tree_medicos.heading(col, text=col)
             self.tree_medicos.column(col, width=widths[i])
 
-        self.tree_medicos.pack(pady=10, fill="x")
+        # Scrollbar
+        scrollbar_med = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree_medicos.yview)
+        self.tree_medicos.configure(yscroll=scrollbar_med.set)
+
+        self.tree_medicos.pack(side="left", fill="both", expand=True)
+        scrollbar_med.pack(side="right", fill="y")
+        
         self.tree_medicos.bind("<<TreeviewSelect>>", self.seleccionar_medico)
 
-        # TABLA HORARIOS DEL MÉDICO
-        tk.Label(self.master, text="Horarios del Médico Seleccionado", font=("Segoe UI", 14, "bold")).pack(pady=5)
+        # DERECHA: HORARIOS
+        right_panel = ttk.Frame(main_frame, style="Card.TFrame", padding=20)
+        right_panel.pack(side="right", fill="both", padx=(10, 0))
+
+        ttk.Label(right_panel, text="Horarios Asignados", font=("Segoe UI", 12, "bold"), background="white").pack(anchor="w", pady=(0, 15))
 
         self.tree_horarios = ttk.Treeview(
-            self.master,
-            columns=("ID", "Fecha", "Inicio", "Fin", "Disponible"),
+            right_panel,
+            columns=("Fecha", "Inicio", "Fin"),
             show="headings",
-            height=8
+            height=15,
+            style="Treeview"
         )
 
-        headers2 = ["ID", "Fecha", "Inicio", "Fin", "Disponible"]
-        widths2 = [60, 120, 100, 100, 100]
+        self.tree_horarios.heading("Fecha", text="Fecha")
+        self.tree_horarios.heading("Inicio", text="Inicio")
+        self.tree_horarios.heading("Fin", text="Fin")
 
-        for i, col in enumerate(headers2):
-            self.tree_horarios.heading(col, text=col)
-            self.tree_horarios.column(col, width=widths2[i])
+        self.tree_horarios.column("Fecha", width=100)
+        self.tree_horarios.column("Inicio", width=80)
+        self.tree_horarios.column("Fin", width=80)
 
-        self.tree_horarios.pack(pady=5, fill="x")
+        self.tree_horarios.pack(fill="both", expand=True, pady=(0, 10))
+
+        ttk.Button(
+            right_panel,
+            text="🔄 Actualizar Horarios",
+            command=self.cargar_horarios_medico,
+            style="TButton"
+        ).pack(fill="x")
+
+    def crear_campo_grid(self, parent, label, attr_name, row, col):
+        # Contenedor para el campo (Label + Entry)
+        field_frame = tk.Frame(parent, bg="white")
+        field_frame.grid(row=row, column=col, padx=10, pady=5, sticky="nw")
+        
+        ttk.Label(field_frame, text=label, background="white", font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(0, 5))
+        
+        entry = ttk.Entry(field_frame, width=28)
+        entry.pack(anchor="w", fill="x")
+        setattr(self, attr_name, entry)
 
     def cargar_tabla_medicos(self):
+        """Carga todos los médicos en la tabla"""
+        try:
+            self.lista_medicos = listar_medicos()
+            print(f"DEBUG: Medicos cargados: {len(self.lista_medicos)}")
+            for m in self.lista_medicos:
+                print(f"DEBUG: Medico: {m}")
+            self.actualizar_treeview(self.lista_medicos)
+        except Exception as e:
+            print(f"DEBUG: Error cargando medicos: {e}")
+            messagebox.showerror("Error", f"Error cargando médicos: {e}")
+
+    def actualizar_treeview(self, datos):
         for item in self.tree_medicos.get_children():
             self.tree_medicos.delete(item)
+        
+        for m in datos:
+            self.tree_medicos.insert("", tk.END, values=m)
 
-        try:
-            medicos = listar_medicos()
-            for m in medicos:
-                self.tree_medicos.insert("", tk.END, values=m)
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar médicos:\n{e}")
+    def filtrar_tabla(self, event):
+        texto = self.txt_buscar.get().lower()
+        if not texto:
+            self.actualizar_treeview(self.lista_medicos)
+            return
+
+        filtrados = []
+        for m in self.lista_medicos:
+            # m[1] es DNI, m[2] es Nombre, m[3] es Especialidad
+            if (texto in str(m[1]).lower() or 
+                texto in str(m[2]).lower() or 
+                texto in str(m[3]).lower()):
+                filtrados.append(m)
+        
+        self.actualizar_treeview(filtrados)
 
     def seleccionar_medico(self, event):
         try:
@@ -127,7 +208,7 @@ class MedicosForm(tk.Frame):
         self.cargar_horarios_medico()
 
     def cargar_horarios_medico(self):
-        """Carga horarios del médico seleccionado - VERSIÓN CORREGIDA"""
+        # Limpiar tabla
         for item in self.tree_horarios.get_children():
             self.tree_horarios.delete(item)
 
@@ -135,32 +216,15 @@ class MedicosForm(tk.Frame):
             return
 
         try:
-            # Obtener TODOS los horarios
-            todos_horarios = listar_horarios()
-
-            # Filtrar por ID del médico seleccionado
-            for h in todos_horarios:
-                # h = (ID_HORARIO, MEDICO_NOMBRE, FECHA, HORA_INICIO, HORA_FIN, DISPONIBLE)
-                # Extraer ID del médico del campo "MEDICO_NOMBRE" (formato: "ID - Nombre")
-                medico_info = h[1]  # "ID - Nombre (Especialidad)"
-
-                try:
-                    id_medico_horario = int(medico_info.split(" - ")[0])
-
-                    # Solo mostrar si coincide con el médico seleccionado
-                    if id_medico_horario == int(self.id_medico):
-                        self.tree_horarios.insert("", tk.END, values=(
-                            h[0],  # ID_HORARIO
-                            h[2],  # Fecha
-                            h[3],  # Hora inicio
-                            h[4],  # Hora fin
-                            h[5]  # Disponible
-                        ))
-                except (ValueError, IndexError):
-                    continue
+            horarios = listar_horarios_por_medico(int(self.id_medico))
+            
+            # Insertar horarios en la tabla (filtrando columnas relevantes)
+            for h in horarios:
+                # h = (ID, Fecha, Inicio, Fin, Disponible)
+                self.tree_horarios.insert("", tk.END, values=(h[1], h[2], h[3]))
 
         except Exception as e:
-            messagebox.showerror("Error", f"Error al cargar horarios:\n{e}")
+            print(f"Error al cargar horarios: {e}")
 
     def limpiar_form(self):
         self.id_medico = None
@@ -169,12 +233,10 @@ class MedicosForm(tk.Frame):
         self.txt_especialidad.delete(0, tk.END)
         self.cbo_estado.set("")
 
-        # Limpiar horarios
         for item in self.tree_horarios.get_children():
             self.tree_horarios.delete(item)
 
     def validar_datos(self):
-        """Valida los datos del formulario"""
         dni = self.txt_dni.get().strip()
         nombre = self.txt_nombre.get().strip()
         especialidad = self.txt_especialidad.get().strip()
@@ -227,10 +289,12 @@ class MedicosForm(tk.Frame):
         if self.id_medico is None:
             messagebox.showwarning("Aviso", "Seleccione un médico.")
             return
-
+        
         respuesta = messagebox.askyesno(
             "Confirmar",
-            "¿Está seguro de eliminar este médico?\nEsta acción no se puede deshacer."
+            "¿Está seguro de eliminar este médico?\n\n"
+            "⚠️ ADVERTENCIA: También se eliminarán sus horarios y citas asociadas.\n"
+            "Esta acción no se puede deshacer."
         )
 
         if not respuesta:

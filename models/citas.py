@@ -1,9 +1,11 @@
-# models/citas.py - VERSIÓN CORREGIDA
-from db_oracle import fetch_all, execute_query
-
+# =====================================================
+import cx_Oracle
+from db_oracle import fetch_all, execute_query, get_connection
+from tkinter import messagebox
 
 def listar_citas():
-    query = """
+    # Query completa
+    query_full = """
         SELECT  
             C.ID_CITA,
             P.NOMBRE AS PACIENTE,
@@ -17,24 +19,84 @@ def listar_citas():
         JOIN PACIENTES P ON P.ID_PACIENTE = C.ID_PACIENTE
         JOIN MEDICOS M   ON M.ID_MEDICO = C.ID_MEDICO
         JOIN HORARIOS H  ON H.ID_HORARIO = C.ID_HORARIO
-        ORDER BY H.FECHA, H.HORA_INICIO
+        ORDER BY H.FECHA DESC, H.HORA_INICIO
     """
-    return fetch_all(query)
+
+    # Query de respaldo (sin FECHA_REG)
+    query_fallback = """
+        SELECT  
+            C.ID_CITA,
+            P.NOMBRE AS PACIENTE,
+            M.NOMBRE AS MEDICO,
+            M.ESPECIALIDAD,
+            TO_CHAR(H.FECHA, 'YYYY-MM-DD') AS FECHA,
+            H.HORA_INICIO || ' - ' || H.HORA_FIN AS HORARIO,
+            NVL(C.MOTIVO, '-') AS MOTIVO,
+            '-' AS FECHA_REG
+        FROM CITAS C
+        JOIN PACIENTES P ON P.ID_PACIENTE = C.ID_PACIENTE
+        JOIN MEDICOS M   ON M.ID_MEDICO = C.ID_MEDICO
+        JOIN HORARIOS H  ON H.ID_HORARIO = C.ID_HORARIO
+        ORDER BY H.FECHA DESC, H.HORA_INICIO
+    """
+
+    conn = get_connection()
+    if conn is None:
+        return []
+
+    cur = None
+    try:
+        cur = conn.cursor()
+        cur.execute(query_full)
+        rows = cur.fetchall()
+        return rows
+
+    except cx_Oracle.DatabaseError as e:
+        error_obj, = e.args
+        # Si el error es "invalid identifier" (ORA-00904), probamos el fallback
+        if error_obj.code == 904: 
+            try:
+                print("Advertencia: Columna FECHA_REG no encontrada. Usando query de respaldo.")
+                cur.execute(query_fallback)
+                rows = cur.fetchall()
+                return rows
+            except cx_Oracle.Error as e2:
+                messagebox.showerror("Error SQL", f"Error al ejecutar SELECT (Fallback):\n{e2}")
+                return []
+        else:
+            messagebox.showerror("Error SQL", f"Error al ejecutar SELECT:\n{e}")
+            return []
+
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            try:
+                # Asumiendo que get_connection usa el pool del db_oracle modificado
+                # Si no, esto podría fallar si no se importó _pool, pero db_oracle maneja el release en close() si es objeto conexión?
+                # En el código anterior de db_oracle.py, get_connection devuelve el objeto conexión raw del pool.
+                # Debemos hacer release.
+                # Como no tenemos acceso a _pool aquí directamente, dependemos de cómo db_oracle maneja el cierre.
+                # Revisando db_oracle.py: fetch_all hace _pool.release(conn).
+                # Aquí estamos haciendo manual.
+                # Necesitamos acceder al pool o llamar a close().
+                # Si es cx_Oracle.Connection del pool, .close() lo devuelve al pool?
+                # Sí, en SessionPool, conn.close() libera la conexión al pool.
+                conn.close()
+            except:
+                pass
 
 
 def crear_cita(data):
-    """Crea una cita y marca el horario como NO disponible"""
     query = """
         INSERT INTO CITAS (
-            ID_CITA, ID_PACIENTE, ID_MEDICO, ID_HORARIO, MOTIVO, FECHA_REG
+            ID_PACIENTE, ID_MEDICO, ID_HORARIO, MOTIVO
         )
         VALUES (
-            SEQ_CITAS.NEXTVAL,
             :id_paciente,
             :id_medico,
             :id_horario,
-            :motivo,
-            SYSDATE
+            :motivo
         )
     """
     execute_query(query, data, commit=True)
@@ -48,7 +110,6 @@ def crear_cita(data):
 
 
 def actualizar_cita(id_cita, data):
-    """Actualiza una cita y ajusta disponibilidad de horarios"""
     # Obtener horario anterior
     horario_anterior = fetch_all(
         "SELECT ID_HORARIO FROM CITAS WHERE ID_CITA = :id",
@@ -84,7 +145,6 @@ def actualizar_cita(id_cita, data):
 
 
 def eliminar_cita(id_cita):
-    """Elimina una cita y libera el horario"""
     # Obtener horario antes de eliminar
     horario = fetch_all(
         "SELECT ID_HORARIO FROM CITAS WHERE ID_CITA = :id",
@@ -104,22 +164,3 @@ def eliminar_cita(id_cita):
             {"id": horario[0][0]},
             commit=True
         )
-
-
-def horarios_disponibles(id_medico, fecha):
-    """Lista horarios disponibles que NO tienen citas asignadas"""
-    query = """
-        SELECT 
-            ID_HORARIO,
-            HORA_INICIO,
-            HORA_FIN
-        FROM HORARIOS
-        WHERE ID_MEDICO = :id_medico
-          AND FECHA = TO_DATE(:fecha, 'YYYY-MM-DD')
-          AND DISPONIBLE = 'S'
-        ORDER BY HORA_INICIO
-    """
-    return fetch_all(query, {
-        "id_medico": id_medico,
-        "fecha": fecha
-    })
